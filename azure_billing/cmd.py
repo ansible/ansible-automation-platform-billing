@@ -1,10 +1,11 @@
 #!/opt/app-root/bin/python3
 
-from azure import billing
-from db import db
 import argparse
 import sys
 import yaml
+
+from . import billing
+from . import db
 
 
 def processArgs():
