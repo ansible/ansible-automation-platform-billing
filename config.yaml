@@ -1,6 +1,0 @@
-db:
-  host: postgres
-  port: 5432
-  name: awx
-  user: awx
-  pass: <password>

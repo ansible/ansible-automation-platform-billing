@@ -1,4 +1,1 @@
-postgresql-devel [platform:centos-8 platform:rhel-8]
-python38-psycopg2 [platform:centos-8 platform:rhel-8]
 python38-requests [platform:centos-8 platform:rhel-8]
-python38-pyyaml [platform:centos-8 platform-rhel-8]
