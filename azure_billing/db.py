@@ -71,7 +71,7 @@ def markHostsBilled(unbilled_hosts):
     Add/update reported hosts in the DB
     """
     for host in unbilled_hosts:
-        b = BilledHost(host_name=host, billed_date=models.functions.Now())
+        BilledHost(host_name=host, billed_date=models.functions.Now())
         # TODO b.save()
 
 

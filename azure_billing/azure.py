@@ -69,9 +69,12 @@ def fetchManagedAppId(subscription_id, resource_group_name, access_token):
     Fetch current managed application ID
     """
     auth_header = {"Authorization": "Bearer %s" % access_token}
-    url = (
-        "https://management.azure.com/subscriptions/%s/resourceGroups/%s?api-version=%s"
-        % (subscription_id, resource_group_name, subscription_api_version)
+    base = "https://management.azure.com/subscriptions"
+    url = "%s/%s/resourceGroups/%s?api-version=%s" % (
+        base,
+        subscription_id,
+        resource_group_name,
+        subscription_api_version,
     )
     j = _getJsonPayload(url, auth_header, "managed app ID")
     managed_app_id = j["managedBy"]
