@@ -7,37 +7,49 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='BilledHost',
+            name="BilledHost",
             fields=[
-                ('billed_date', models.DateTimeField()),
-                ('host_name', models.CharField(max_length=1024, primary_key=True, serialize=False)),
+                ("billed_date", models.DateTimeField()),
+                (
+                    "host_name",
+                    models.CharField(
+                        max_length=1024, primary_key=True, serialize=False
+                    ),
+                ),
             ],
             options={
-                'verbose_name_plural': 'billed hosts',
-                'ordering': ('-pk',),
+                "verbose_name_plural": "billed hosts",
+                "ordering": ("-pk",),
             },
         ),
         migrations.CreateModel(
-            name='BillingRecord',
+            name="BillingRecord",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('billed_date', models.DateTimeField()),
-                ('dimension', models.CharField(max_length=1024)),
-                ('quantity', models.IntegerField()),
-                ('hosts', models.CharField(max_length=1024)),
-                ('managed_app_id', models.CharField(max_length=1024)),
-                ('resource_id', models.CharField(max_length=1024)),
-                ('plan', models.CharField(max_length=1024)),
-                ('usage_event_id', models.CharField(max_length=1024)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("billed_date", models.DateTimeField()),
+                ("dimension", models.CharField(max_length=1024)),
+                ("quantity", models.IntegerField()),
+                ("hosts", models.CharField(max_length=1024)),
+                ("managed_app_id", models.CharField(max_length=1024)),
+                ("resource_id", models.CharField(max_length=1024)),
+                ("plan", models.CharField(max_length=1024)),
+                ("usage_event_id", models.CharField(max_length=1024)),
             ],
             options={
-                'verbose_name_plural': 'billing records',
-                'ordering': ('-pk',),
+                "verbose_name_plural": "billing records",
+                "ordering": ("-pk",),
             },
         ),
     ]

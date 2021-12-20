@@ -9,10 +9,11 @@ class JobHostSummary(models.Model):
     Adapted from http://github.com/ansible/awx
     Used for read-only access to main_jobhostsummary table
     """
+
     class Meta:
-        app_label = 'main'
-        verbose_name_plural = ('job host summaries')
-        ordering = ('-pk',)
+        app_label = "main"
+        verbose_name_plural = "job host summaries"
+        ordering = ("-pk",)
         managed = False
 
     created = models.DateTimeField()
@@ -38,7 +39,7 @@ class JobHostSummary(models.Model):
     failed = models.BooleanField(default=False, editable=False, db_index=True)
 
     def __str__(self):
-        return '%s (modified: %s)' % (self.host_name, self.modified)
+        return "%s (modified: %s)" % (self.host_name, self.modified)
 
     def save(self, *args, **kwargs):
         logger.error("Job Host Summary table is read-only")
