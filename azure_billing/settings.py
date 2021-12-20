@@ -14,7 +14,7 @@ INSTALLED_APPS = ["main", "billing"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-DATABASE_ROUTERS = ["db.BillingRouter"]
+DATABASE_ROUTERS = ["db.db.BillingRouter"]
 
 DATABASES = {
     "default": {

@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 
+from azure import azapi
+
 import argparse
-import azure
 import django
 import logging
 import os
@@ -32,7 +33,7 @@ logging.basicConfig(
 # Bootstrap django (orm only)
 os.environ["DJANGO_SETTINGS_MODULE"] = "settings"
 django.setup()
-import db  # noqa: E402 - Must follow django setup
+from db import db  # noqa: E402 - Must follow django setup
 
 logger.info("Checking for unbilled hosts.")
 unbilled = db.getUnbilledHosts()
