@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from azure import azapi
+from azure_billing.azure import azapi
 
 import argparse
 import django
@@ -44,7 +44,7 @@ if unbilled:
         % len(unbilled)
     )
 
-    billing_record = azure.pegBillingCounter(DIM, len(unbilled))
+    billing_record = azapi.pegBillingCounter(DIM, len(unbilled))
     billing_record["hosts"] = unbilled
     billing_record["dimension"] = DIM
 
