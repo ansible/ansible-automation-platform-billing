@@ -10,11 +10,11 @@ SECRET_KEY = "w+)ziyx0hm0rv5mxkaw%p@ffjmvyesy$a&bmh!kx_24iu=#7jf"
 
 ALLOWED_HOSTS = []
 
-INSTALLED_APPS = ["main", "billing"]
+INSTALLED_APPS = ["azure_billing.main", "azure_billing.billing"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-DATABASE_ROUTERS = ["db.db.BillingRouter"]
+DATABASE_ROUTERS = ["azure_billing.db.db.BillingRouter"]
 
 DATABASES = {
     "default": {
