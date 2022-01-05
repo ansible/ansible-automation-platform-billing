@@ -1,8 +1,8 @@
 from django.db import models
 
-from main.models import JobHostSummary
-from billing.models import BilledHost
-from billing.models import BillingRecord
+from azure_billing.main.models import JobHostSummary
+from azure_billing.billing.models import BilledHost
+from azure_billing.billing.models import BillingRecord
 
 import logging
 
