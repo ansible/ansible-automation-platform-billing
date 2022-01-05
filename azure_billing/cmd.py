@@ -31,7 +31,7 @@ logging.basicConfig(
 )
 
 # Bootstrap django (orm only)
-os.environ["DJANGO_SETTINGS_MODULE"] = "settings"
+os.environ["DJANGO_SETTINGS_MODULE"] = "azure_billing.settings"
 django.setup()
 from azure_billing.db import db  # noqa: E402 - Must follow django setup
 
