@@ -3,6 +3,7 @@ Django settings for project.
 """
 
 from pathlib import Path
+import sys
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -16,25 +17,6 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 DATABASE_ROUTERS = ["azure_billing.db.db.BillingRouter"]
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "azurebilling",
-        "USER": "<user>",
-        "PASSWORD": "<passwd>",
-        "HOST": "<dbhost>",
-        "PORT": "5432",
-    },
-    "awx": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "awx",
-        "USER": "<user>",
-        "PASSWORD": "<passwd>",
-        "HOST": "<dbhost>",
-        "PORT": "5432",
-    },
-}
-
 LANGUAGE_CODE = "en-us"
 
 TIME_ZONE = "UTC"
@@ -44,3 +26,15 @@ USE_I18N = True
 USE_L10N = True
 
 USE_TZ = True
+
+"""
+Import /etc/billing/billingconf.py settings file if it exists.
+The following settings are expected to be defined there
+"""
+
+DATABASES = {}
+
+MANAGED_RESOURCE_GROUP = ""
+
+sys.path.append('/etc/billing')
+from billingconf import *
