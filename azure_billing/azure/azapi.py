@@ -1,4 +1,5 @@
 from datetime import datetime
+from django.conf import settings
 import logging
 import requests
 import sys
@@ -45,23 +46,22 @@ def fetchAccessToken():
     return token
 
 
-def fetchSubscriptionAndRG():
+def fetchSubscription():
     """
-    Fetch the current subscription and resource group from the metadata store
+    Fetch the current subscription from the metadata store
     """
     url = "http://%s/metadata/instance?api-version=%s" % (
         metadata_ip,
         instance_api_version,
     )
     j = _getJsonPayload(
-        url, metadata_header, "subscription and resource group"
+        url, metadata_header, "subscription"
     )
     subId = j["compute"]["subscriptionId"]
-    rg = j["compute"]["resourceGroupName"]
     logger.debug(
-        "Fetched subscription ID (%s) and resource group (%s)." % (subId, rg)
+        "Fetched subscription ID (%s)." % subId
     )
-    return (subId, rg)
+    return subId
 
 
 def fetchManagedAppId(subscription_id, resource_group_name, access_token):
@@ -105,8 +105,9 @@ def pegBillingCounter(dimension, quantity):
     Send usage quantity to billing API
     """
     token = fetchAccessToken()
-    (sub, rg) = fetchSubscriptionAndRG()
-    managed_app_id = fetchManagedAppId(sub, rg, token)
+    sub = fetchSubscription()
+    mrg = settings.MANAGED_RESOURCE_GROUP
+    managed_app_id = fetchManagedAppId(sub, mrg, token)
     (resource_id, plan) = fetchResourceIdAndPlan(managed_app_id, token)
 
     billing_data = {}
