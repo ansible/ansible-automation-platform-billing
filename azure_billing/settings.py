@@ -2,12 +2,17 @@
 Django settings for project.
 """
 
+from django.core.management.utils import get_random_secret_key
 from pathlib import Path
+import os
 import sys
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "w+)ziyx0hm0rv5mxkaw%p@ffjmvyesy$a&bmh!kx_24iu=#7jf"
+if os.path.exists('/etc/billing/SECRET_KEY'):
+    SECRET_KEY = open('/etc/billing/SECRET_KEY', 'r').read().strip()
+else:
+    SECRET_KEY = get_random_secret_key()
 
 ALLOWED_HOSTS = []
 
