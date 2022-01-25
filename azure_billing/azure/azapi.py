@@ -1,5 +1,4 @@
 from datetime import datetime
-from django.conf import settings
 import logging
 import requests
 import sys
@@ -46,22 +45,22 @@ def fetchAccessToken():
     return token
 
 
-def fetchSubscription():
+def fetchSubscriptionAndNodeResourceGroup():
     """
-    Fetch the current subscription from the metadata store
+    Fetch subscription and node resource group from the metadata store
     """
     url = "http://%s/metadata/instance?api-version=%s" % (
         metadata_ip,
         instance_api_version,
     )
-    j = _getJsonPayload(
-        url, metadata_header, "subscription"
-    )
+    j = _getJsonPayload(url, metadata_header, "subscription")
     subId = j["compute"]["subscriptionId"]
+    nrg = j["compute"]["resourceGroupName"]
     logger.debug(
-        "Fetched subscription ID (%s)." % subId
+        "Fetched subscription ID (%s) and node resource group (%s)."
+        % (subId, nrg)
     )
-    return subId
+    return (subId, nrg)
 
 
 def fetchManagedAppId(subscription_id, resource_group_name, access_token):
@@ -80,6 +79,28 @@ def fetchManagedAppId(subscription_id, resource_group_name, access_token):
     managed_app_id = j["managedBy"]
     logger.debug("Fetched managed app ID (%s)" % managed_app_id)
     return managed_app_id
+
+
+def fetchManagedResourceGroup(
+    subscription_id, node_resource_group_name, access_token
+):
+    """
+    Fetch managed resource group name from node resource group metadata
+    """
+    auth_header = {"Authorization": "Bearer %s" % access_token}
+    base = "https://management.azure.com/subscriptions"
+    url = "%s/%s/resourceGroups/%s?api-version=%s" % (
+        base,
+        subscription_id,
+        node_resource_group_name,
+        subscription_api_version,
+    )
+    j = _getJsonPayload(url, auth_header, "managed resource group")
+    managed_resource_group = j["tags"]["aks-managed-cluster-rg"]
+    logger.debug(
+        "Fetched managed resource group (%s)" % managed_resource_group
+    )
+    return managed_resource_group
 
 
 def fetchResourceIdAndPlan(managed_app_id, access_token):
@@ -105,8 +126,8 @@ def pegBillingCounter(dimension, quantity):
     Send usage quantity to billing API
     """
     token = fetchAccessToken()
-    sub = fetchSubscription()
-    mrg = settings.MANAGED_RESOURCE_GROUP
+    (sub, nrg) = fetchSubscriptionAndNodeResourceGroup()
+    mrg = fetchManagedResourceGroup(sub, nrg, token)
     managed_app_id = fetchManagedAppId(sub, mrg, token)
     (resource_id, plan) = fetchResourceIdAndPlan(managed_app_id, token)
 

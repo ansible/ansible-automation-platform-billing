@@ -9,8 +9,8 @@ import sys
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-if os.path.exists('/etc/billing/SECRET_KEY'):
-    SECRET_KEY = open('/etc/billing/SECRET_KEY', 'r').read().strip()
+if os.path.exists("/etc/billing/SECRET_KEY"):
+    SECRET_KEY = open("/etc/billing/SECRET_KEY", "r").read().strip()
 else:
     SECRET_KEY = get_random_secret_key()
 
@@ -34,12 +34,10 @@ USE_TZ = True
 
 """
 Import /etc/billing/billingconf.py settings file if it exists.
-The following settings are expected to be defined there
+Database settings are expected to be defined there
 """
 
 DATABASES = {}
 
-MANAGED_RESOURCE_GROUP = ""
-
-sys.path.append('/etc/billing')
-from billingconf import *
+sys.path.append("/etc/billing")
+from billingconf import *  # noqa
