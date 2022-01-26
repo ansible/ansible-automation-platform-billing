@@ -24,35 +24,40 @@ def processArgs():
 
 
 # Main
-args = processArgs()
-logging.basicConfig(
-    level=logging.DEBUG if args.debugmode else logging.INFO,
-    format="%(levelname)s %(asctime)s\t%(message)s",
-)
-
-# Bootstrap django (orm only)
-os.environ["DJANGO_SETTINGS_MODULE"] = "azure_billing.settings"
-django.setup()
-from azure_billing.db import db  # noqa: E402 - Must follow django setup
-
-logger.info("Checking for unbilled hosts.")
-unbilled = db.getUnbilledHosts()
-
-if unbilled:
-    logger.info(
-        "%d unbilled hosts found, sending billing data to Azure"
-        % len(unbilled)
+def main():
+    args = processArgs()
+    logging.basicConfig(
+        level=logging.DEBUG if args.debugmode else logging.INFO,
+        format="%(levelname)s %(asctime)s\t%(message)s",
     )
 
-    billing_record = azapi.pegBillingCounter(DIM, len(unbilled))
-    billing_record["hosts"] = unbilled
-    billing_record["dimension"] = DIM
+    # Bootstrap django (orm only)
+    os.environ["DJANGO_SETTINGS_MODULE"] = "azure_billing.settings"
+    django.setup()
+    from azure_billing.db import db  # noqa: E402 - Must follow django setup
 
-    # Record billing data
-    db.recordBillingInstance(billing_record)
+    logger.info("Checking for unbilled hosts.")
+    unbilled = db.getUnbilledHosts()
 
-    # Mark hosts as billed if successful
-    logger.info("Marking hosts as billed/recorded.")
-    db.markHostsBilled(unbilled)
-else:
-    logger.info("No unbilled hosts found.")
+    if unbilled:
+        logger.info(
+            "%d unbilled hosts found, sending billing data to Azure"
+            % len(unbilled)
+        )
+
+        billing_record = azapi.pegBillingCounter(DIM, len(unbilled))
+        billing_record["hosts"] = unbilled
+        billing_record["dimension"] = DIM
+
+        # Record billing data
+        db.recordBillingInstance(billing_record)
+
+        # Mark hosts as billed if successful
+        logger.info("Marking hosts as billed/recorded.")
+        db.markHostsBilled(unbilled)
+    else:
+        logger.info("No unbilled hosts found.")
+
+
+if __name__ == "__main__":
+    main()
