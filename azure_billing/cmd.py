@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 from azure_billing.azure import azapi
+from django.conf import settings
 
 import argparse
 import django
@@ -8,8 +9,6 @@ import logging
 import os
 
 logger = logging.getLogger()
-
-DIM = "hosts"
 
 
 def processArgs():
@@ -45,9 +44,9 @@ def main():
             % len(unbilled)
         )
 
-        billing_record = azapi.pegBillingCounter(DIM, len(unbilled))
+        billing_record = azapi.pegBillingCounter(settings.DIMENSION, len(unbilled))
         billing_record["hosts"] = unbilled
-        billing_record["dimension"] = DIM
+        billing_record["dimension"] = settings.DIMENSION
 
         # Record billing data
         db.recordBillingInstance(billing_record)

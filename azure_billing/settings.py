@@ -33,6 +33,12 @@ USE_L10N = True
 USE_TZ = True
 
 """
+Dimension name/meter under which to report active
+host counts.
+"""
+DIMENSION = "managed_active_node"
+
+"""
 Import /etc/billing/billingconf.py settings file if it exists.
 Database settings are expected to be defined there
 """
