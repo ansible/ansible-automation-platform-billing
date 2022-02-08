@@ -1,4 +1,4 @@
 Django
 psycopg2
 requests
-dateutil
+python-dateutil
