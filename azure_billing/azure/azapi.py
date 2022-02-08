@@ -114,7 +114,9 @@ def fetchResourceIdAndPlan(managed_app_id, access_token):
     )
     j = _getJsonPayload(url, auth_header, "resource usage ID and plan")
     if "billingDetails" not in j["properties"]:
-        logger.error("No billing details present on managed app.  Single tenant deployment?")
+        logger.error(
+            "No billing details present on managed app.  Single tenant deployment?"
+        )
         sys.exit(1)
     resource_id = j["properties"]["billingDetails"]["resourceUsageId"]
     plan = j["plan"]["name"]
@@ -124,7 +126,7 @@ def fetchResourceIdAndPlan(managed_app_id, access_token):
     return (resource_id, plan)
 
 
-def pegBillingCounter(dimension, quantity):
+def pegBillingCounter(dimension, hosts):
     """
     Send usage quantity to billing API
     """
@@ -137,7 +139,7 @@ def pegBillingCounter(dimension, quantity):
     billing_data = {}
     billing_data["resourceId"] = resource_id
     billing_data["dimension"] = dimension
-    billing_data["quantity"] = quantity
+    billing_data["quantity"] = len(hosts)
     billing_data["effectiveStartTime"] = (
         datetime.now().replace(microsecond=0).isoformat()
     )
@@ -154,7 +156,7 @@ def pegBillingCounter(dimension, quantity):
         logger.error("Unable to send data to Azure, abort: %s" % repr(e))
 
     # TODO response.raise_for_status()
-    logger.debug("Billing response: %s" % response.text)
+    logger.debug("Billing response: %s" % response.json())
 
     # TODO Populate this when billing is working (from response)
     usage_event_id = "TBD"
@@ -164,5 +166,8 @@ def pegBillingCounter(dimension, quantity):
     billing_record["resource_id"] = resource_id
     billing_record["plan"] = plan
     billing_record["usage_event_id"] = usage_event_id
+    billing_record["dimension"] = dimension
+    billing_record["hosts"] = ",".join(hosts)
+    billing_record["quantity"] = len(hosts)
 
     return billing_record

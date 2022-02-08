@@ -3,7 +3,7 @@ from django.db import models
 
 class BilledHost(models.Model):
     """
-    Storage for billed hosts, retaining hostname and date.
+    Storage for billed hosts, retaining hostname and dates.
     """
 
     class Meta:
@@ -17,6 +17,8 @@ class BilledHost(models.Model):
         max_length=1024,
         primary_key=True,
     )
+
+    rollover_date = models.DateTimeField(default=None, null=True)
 
 
 class BillingRecord(models.Model):
@@ -56,3 +58,19 @@ class BillingRecord(models.Model):
     usage_event_id = models.CharField(
         max_length=1024,
     )
+
+
+class InstallDate(models.Model):
+    """
+    Record installation date of managed app.
+    """
+
+    install_date = models.DateTimeField(default=None)
+
+
+class RolloverDate(models.Model):
+    """
+    Record calculated billing period rollover date.
+    """
+
+    rollover_date = models.DateTimeField(default=None)

@@ -1,0 +1,38 @@
+[
+  {
+    "model": "billing.billedhost",
+    "pk": 1,
+    "fields": {
+      "host_name": "host3",
+      "billed_date": "2021-12-25T15:38:02Z",
+      "rollover_date": "2022-01-01T15:38:02Z"
+    }
+  },
+  {
+    "model": "billing.billedhost",
+    "pk": 2,
+    "fields": {
+      "host_name": "host1",
+      "billed_date": "2022-01-15T15:38:02Z",
+      "rollover_date": null
+    }
+  },
+  {
+    "model": "billing.billedhost",
+    "pk": 3,
+    "fields": {
+      "host_name": "host4",
+      "billed_date": "2022-01-18T15:38:02Z",
+      "rollover_date": null
+    }
+  },
+  {
+    "model": "billing.billedhost",
+    "pk": 4,
+    "fields": {
+      "host_name": "host5",
+      "billed_date": "2022-01-20T15:38:02Z",
+      "rollover_date": null
+    }
+  }
+]

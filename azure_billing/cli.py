@@ -35,8 +35,14 @@ def main():
     django.setup()
     from azure_billing.db import db  # noqa: E402 - Must follow django setup
 
+    logger.info("Calculating/validating billing period.")
+    rollover_date = db.getRolloverDate()
+    logger.info(
+        "Billing period rollover date: %s" % rollover_date.strftime("%m-%d-%Y")
+    )
+
     logger.info("Checking for unbilled hosts.")
-    unbilled = db.getUnbilledHosts()
+    unbilled = db.getUnbilledHosts(rollover_date)
 
     if unbilled:
         logger.info(
@@ -44,9 +50,7 @@ def main():
             % len(unbilled)
         )
 
-        billing_record = azapi.pegBillingCounter(settings.DIMENSION, len(unbilled))
-        billing_record["hosts"] = unbilled
-        billing_record["dimension"] = settings.DIMENSION
+        billing_record = azapi.pegBillingCounter(settings.DIMENSION, unbilled)
 
         # Record billing data
         db.recordBillingInstance(billing_record)
@@ -56,6 +60,12 @@ def main():
         db.markHostsBilled(unbilled)
     else:
         logger.info("No unbilled hosts found.")
+
+    # Rollover to new billing period if needed
+    logger.info("Checking for billing period rollover.")
+    if db.checkRolloverNeeded(rollover_date):
+        logger.info("Rolling over to new billing period.")
+        db.rollover()
 
 
 if __name__ == "__main__":

@@ -6,3 +6,4 @@ ChangeLog
 build/
 venv/
 ansible_automation_platform_azure_billing.egg.info/
+*.sqlite3

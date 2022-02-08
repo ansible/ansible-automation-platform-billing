@@ -23,7 +23,7 @@ INSTALLED_APPS = ["azure_billing.main", "azure_billing.billing"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-DATABASE_ROUTERS = ["azure_billing.db.db.BillingRouter"]
+DATABASE_ROUTERS = ["azure_billing.db.testRouter.TestRouter"]
 
 LANGUAGE_CODE = "en-us"
 
@@ -41,15 +41,10 @@ host counts.
 """
 DIMENSION = "managed_active_node"
 
-"""
-Import /etc/billing/billingconf.py settings file if it exists.
-Database settings are expected to be defined there
-"""
-
-DATABASES = {}
-
-sys.path.append("/etc/billing")
-try:
-    from billingconf import *  # noqa
-except:
-    logger.error("Unable to find settings file /etc/billing/billingconf.py")
+# Test databases
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": "azurebilling.sqlite3",
+    }
+}

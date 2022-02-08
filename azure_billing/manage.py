@@ -5,6 +5,7 @@ import sys
 
 
 def main():
+    sys.path.append(os.path.join(os.getcwd(), ".."))
     """Run administrative tasks."""
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "azure_billing.settings")
     try:
