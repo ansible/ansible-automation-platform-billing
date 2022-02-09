@@ -51,5 +51,5 @@ DATABASES = {}
 sys.path.append("/etc/billing")
 try:
     from billingconf import *  # noqa
-except:
+except:  # noqa
     logger.error("Unable to find settings file /etc/billing/billingconf.py")

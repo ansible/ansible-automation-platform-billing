@@ -47,7 +47,8 @@ class BillingRouter:
 def getRolloverDate(current_date=datetime.now(timezone.utc)):
     """
     Sets install date if not already set and calculates the next rollover
-    date based on today's date.  Do not set current_date arg except for in tests.
+    date based on today's date.  Do not set current_date arg except for
+    in tests.
     """
     install_date = getInstallDate()
     # Set to next month with day=1 to ensure no premature rollover

@@ -7,3 +7,6 @@ build/
 venv/
 ansible_automation_platform_azure_billing.egg.info/
 *.sqlite3
+.vscode/
+.python-version
+aap-billing/

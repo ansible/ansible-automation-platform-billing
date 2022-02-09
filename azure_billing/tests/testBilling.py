@@ -1,8 +1,6 @@
-from azure_billing.cli import main
 from azure_billing.azure import azapi
 from azure_billing.billing.models import BilledHost, BillingRecord, InstallDate
 from azure_billing.db import db
-from azure_billing.main.models import JobHostSummary
 from calendar import monthrange
 from datetime import datetime
 from django.conf import settings
@@ -105,7 +103,8 @@ class MainTest(TransactionTestCase):
                 self.assertEqual(billed_host.billed_date.date(), today.date())
 
         self.assertTrue(db.checkRolloverNeeded(rollover_date))
-        db.rollover()  # Marks all billed hosts as rolled over, clears rolloverdate
+        # Marks all billed hosts as rolled over, clears rolloverdate
+        db.rollover()
         rollover_date = db.getRolloverDate(today)  # Calculated val, 3-1-2022
         self.assertEqual(
             rollover_date.date(),

@@ -115,7 +115,10 @@ def fetchResourceIdAndPlan(managed_app_id, access_token):
     j = _getJsonPayload(url, auth_header, "resource usage ID and plan")
     if "billingDetails" not in j["properties"]:
         logger.error(
-            "No billing details present on managed app.  Single tenant deployment?"
+            """
+            No billing details present on managed app.
+              Single tenant deployment?
+            """
         )
         sys.exit(1)
     resource_id = j["properties"]["billingDetails"]["resourceUsageId"]
