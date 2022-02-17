@@ -21,6 +21,8 @@ else:
 ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
     "constance",
     "azure_billing.main",
     "azure_billing.billing",
