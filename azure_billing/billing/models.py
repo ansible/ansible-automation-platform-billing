@@ -13,10 +13,7 @@ class BilledHost(models.Model):
 
     billed_date = models.DateTimeField()
 
-    host_name = models.CharField(
-        max_length=1024,
-        primary_key=True,
-    )
+    host_name = models.CharField(max_length=1024)
 
     rollover_date = models.DateTimeField(default=None, null=True)
 
@@ -58,19 +55,3 @@ class BillingRecord(models.Model):
     usage_event_id = models.CharField(
         max_length=1024,
     )
-
-
-class InstallDate(models.Model):
-    """
-    Record installation date of managed app.
-    """
-
-    install_date = models.DateTimeField(default=None)
-
-
-class RolloverDate(models.Model):
-    """
-    Record calculated billing period rollover date.
-    """
-
-    rollover_date = models.DateTimeField(default=None)

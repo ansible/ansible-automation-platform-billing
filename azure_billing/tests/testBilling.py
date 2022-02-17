@@ -1,10 +1,9 @@
 from azure_billing.azure import azapi
-from azure_billing.billing.models import BilledHost, BillingRecord, InstallDate
+from azure_billing.billing.models import BilledHost, BillingRecord
 from azure_billing.db import db
-from calendar import monthrange
+from constance import config
 from datetime import datetime
 from django.conf import settings
-from django.core.management import call_command
 from django.test import TransactionTestCase
 from django.utils import timezone
 from unittest import mock
@@ -77,20 +76,17 @@ class MainTest(TransactionTestCase):
     Replicates actions of main method in test environment
     """
 
-    fixtures = ["hosts", "billed", "installdate", "rolloverdate"]
-
-    @classmethod
-    def setUpClass(cls):
-        super(MainTest, cls).setUpClass()
-        call_command("migrate", interactive=False)
+    fixtures = ["hosts", "billed"]
 
     @mock.patch("requests.get", side_effect=mocked_azure_apis)
     @mock.patch("requests.post", side_effect=mocked_azure_apis)
     def testMain(self, mock_get, mock_post):
+        config.INSTALL_DATE = datetime(
+            2022, 1, 1, 0, 0, 0, tzinfo=timezone.utc
+        )
         today = datetime(2022, 2, 7, tzinfo=timezone.utc)
-
-        rollover_date = db.getRolloverDate()  # fixture val, 2-1-22
-        unbilled = db.getUnbilledHosts(rollover_date)  # 2 hosts from fixtures
+        (period_start, period_end) = db._calcBillingPeriod()
+        unbilled = db.getUnbilledHosts(period_start)  # 2 hosts from fixtures
         self.assertEqual(len(unbilled), 2)
         billing_record = azapi.pegBillingCounter(settings.DIMENSION, unbilled)
         db.recordBillingInstance(billing_record)
@@ -102,17 +98,17 @@ class MainTest(TransactionTestCase):
             if billed_host in unbilled:
                 self.assertEqual(billed_host.billed_date.date(), today.date())
 
-        self.assertTrue(db.checkRolloverNeeded(rollover_date))
-        # Marks all billed hosts as rolled over, clears rolloverdate
-        db.rollover()
-        rollover_date = db.getRolloverDate(today)  # Calculated val, 3-1-2022
-        self.assertEqual(
-            rollover_date.date(),
-            datetime(2022, 3, 1, tzinfo=timezone.utc).date(),
+        # Update billing period directly
+        config.BILLING_PERIOD_START = datetime(
+            2022, 2, 7, 0, 0, 0, tzinfo=timezone.utc
         )
-
+        config.BILLING_PERIOD_END = datetime(
+            2022, 3, 6, 0, 0, 0, tzinfo=timezone.utc
+        )
+        # Do rollover
+        db.rolloverIfNeeded()
         unbilled = db.getUnbilledHosts(
-            rollover_date
+            period_start
         )  # Billed hosts cleared, all 3 are unbilled
         self.assertEqual(len(unbilled), 3)
 
@@ -122,30 +118,31 @@ class DbTests(TransactionTestCase):
     Test non-billing period db functions independently
     """
 
-    fixtures = ["hosts", "billed", "rolloverdate"]
-
-    @classmethod
-    def setUpClass(cls):
-        super(DbTests, cls).setUpClass()
-        call_command("migrate", interactive=False)
+    fixtures = ["hosts", "billed"]
 
     def testHostsToReport(self):
-        rollover_date = db.getRolloverDate()
-        hosts = db.getUnbilledHosts(rollover_date)
+        hosts = db.getUnbilledHosts(
+            datetime(2021, 12, 31, tzinfo=timezone.utc)
+        )
         expectedUnbilled = ["host2", "host3"]
         self.assertEqual(len(hosts), 2)
         for host in hosts:
             self.assertIn(host, expectedUnbilled)
 
     def testMarkHostsBilled(self):
-        rollover_date = db.getRolloverDate()
-        hosts = db.getUnbilledHosts(rollover_date)
+        hosts = db.getUnbilledHosts(
+            datetime(2021, 12, 31, tzinfo=timezone.utc)
+        )
         db.markHostsBilled(hosts)
         for host in hosts:
-            qs = BilledHost.objects.filter(host_name=host)
+            qs = BilledHost.objects.filter(host_name=host).order_by(
+                "-billed_date"
+            )
             self.assertTrue(qs.exists())
-            self.assertEqual(qs.get().rollover_date, None)
-        shouldbezero = db.getUnbilledHosts(rollover_date)
+            self.assertEqual(qs.first().rollover_date, None)
+        shouldbezero = db.getUnbilledHosts(
+            datetime(2021, 12, 31, tzinfo=timezone.utc)
+        )
         self.assertEqual(len(shouldbezero), 0)
 
 
@@ -156,64 +153,52 @@ class BillingPeriodTests(TransactionTestCase):
 
     fixtures = ["billed"]
 
-    @classmethod
-    def setUpClass(cls):
-        super(BillingPeriodTests, cls).setUpClass()
-        call_command("migrate", interactive=False)
-
     def testSeedInstallDate(self):
-        db.getRolloverDate()
-        installDate = db.getInstallDate()
+        installDate = config.INSTALL_DATE
         self.assertEqual(installDate.date(), datetime.now(timezone.utc).date())
 
-    def testRolloverToday(self):
-        today = datetime.now(timezone.utc)
-        for day_of_month in range(1, 32):
-            InstallDate.objects.update_or_create(
-                pk=1,
-                defaults={
-                    "install_date": datetime(
-                        2022, 1, day_of_month, tzinfo=timezone.utc
-                    )
-                },
+    def testBillingPeriodCalc(self):
+        # "today" is 1-15-2022
+        # Install dates: Dec 1, 15, 31 2021
+        # (inst date, exp start date, exp end date)
+        today = datetime(2022, 1, 15, tzinfo=timezone.utc)
+        data = [
+            (2021, 12, 1, 2022, 1, 1, 2022, 1, 31),
+            (2021, 12, 15, 2022, 1, 15, 2022, 2, 14),
+            (2021, 12, 31, 2021, 12, 31, 2022, 1, 30),
+        ]
+        for datum in data:
+            config.INSTALL_DATE = datetime(
+                datum[0], datum[1], datum[2], tzinfo=timezone.utc
             )
-            db.rollover()  # Reset rolloverdate
-            rolloverDate = db.getRolloverDate()
-            days_next_month = monthrange(today.year, today.month + 1)[1]
-            self.assertEqual(
-                rolloverDate.day,
-                day_of_month
-                if days_next_month >= day_of_month
-                else days_next_month,
-            )
-            self.assertEqual(rolloverDate.month, today.month + 1)
-            self.assertEqual(rolloverDate.year, today.year)
+            (period_start, period_end) = db._calcBillingPeriod(today)
+            self.assertEqual(period_start.year, datum[3])
+            self.assertEqual(period_start.month, datum[4])
+            self.assertEqual(period_start.day, datum[5])
+            self.assertEqual(period_end.year, datum[6])
+            self.assertEqual(period_end.month, datum[7])
+            self.assertEqual(period_end.day, datum[8])
 
-    def testRolloverSpecial(self):
-        # Test february rollover month since it is short
-        air_quote_today = datetime(2022, 1, 15, tzinfo=timezone.utc)
-        for day_of_month in range(1, 32):
-            InstallDate.objects.update_or_create(
-                pk=1,
-                defaults={
-                    "install_date": datetime(
-                        2022, 1, day_of_month, tzinfo=timezone.utc
-                    )
-                },
+    def testBillingPeriodSpecial(self):
+        # Test february since it is short
+        # Install dates: Dec 1, 15, 31 2021
+        # (inst date, exp start date, exp end date)
+        today = datetime(2022, 2, 15, tzinfo=timezone.utc)
+        data = [
+            (2021, 12, 1, 2022, 2, 1, 2022, 2, 28),
+            (2021, 12, 31, 2022, 1, 31, 2022, 2, 27),
+        ]
+        for datum in data:
+            config.INSTALL_DATE = datetime(
+                datum[0], datum[1], datum[2], tzinfo=timezone.utc
             )
-            db.rollover()  # Reset rolloverdate
-            rolloverDate = db.getRolloverDate(air_quote_today)
-            days_next_month = monthrange(
-                air_quote_today.year, air_quote_today.month + 1
-            )[1]
-            self.assertEqual(
-                rolloverDate.day,
-                day_of_month
-                if days_next_month >= day_of_month
-                else days_next_month,
-            )
-            self.assertEqual(rolloverDate.month, air_quote_today.month + 1)
-            self.assertEqual(rolloverDate.year, air_quote_today.year)
+            (period_start, period_end) = db._calcBillingPeriod(today)
+            self.assertEqual(period_start.year, datum[3])
+            self.assertEqual(period_start.month, datum[4])
+            self.assertEqual(period_start.day, datum[5])
+            self.assertEqual(period_end.year, datum[6])
+            self.assertEqual(period_end.month, datum[7])
+            self.assertEqual(period_end.day, datum[8])
 
 
 class BillingApiTests(TransactionTestCase):
@@ -221,20 +206,16 @@ class BillingApiTests(TransactionTestCase):
     Azure billing API (mocked) related tests
     """
 
-    fixtures = ["hosts", "rolloverdate"]
-
-    @classmethod
-    def setUpClass(cls):
-        super(BillingApiTests, cls).setUpClass()
-        call_command("migrate", interactive=False)
+    fixtures = ["hosts"]
 
     @mock.patch("requests.get", side_effect=mocked_azure_apis)
     @mock.patch("requests.post", side_effect=mocked_azure_apis)
     def testBillingApi(self, mock_get, mock_post):
         today = datetime.now(timezone.utc)
 
-        rollover_date = db.getRolloverDate()
-        hosts = db.getUnbilledHosts(rollover_date)
+        hosts = db.getUnbilledHosts(
+            datetime(2021, 12, 31, tzinfo=timezone.utc)
+        )
         billing_data = azapi.pegBillingCounter(settings.DIMENSION, hosts)
         db.recordBillingInstance(billing_data)
         record = BillingRecord.objects.first()

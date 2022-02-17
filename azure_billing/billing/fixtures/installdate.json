@@ -1,9 +1,0 @@
-[
-  {
-    "model": "billing.installdate",
-    "pk": 1,
-    "fields": {
-      "install_date": "2021-12-01T00:00:00Z"
-    }
-  }
-]
