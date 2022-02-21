@@ -14,6 +14,7 @@ class JobHostSummary(models.Model):
         app_label = "main"
         verbose_name_plural = "job host summaries"
         ordering = ("-pk",)
+        managed = False
 
     created = models.DateTimeField()
 
