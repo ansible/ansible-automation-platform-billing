@@ -155,13 +155,15 @@ def pegBillingCounter(dimension, hosts):
     )
     try:
         response = requests.post(url, headers=auth_header, json=billing_data)
+        response.raise_for_status()
     except requests.exceptions.RequestException as e:
-        logger.error("Unable to send data to Azure, abort: %s" % repr(e))
+        logger.error("Billing payload not accepted: %s", e)
+        logger.error(response.text)
+        sys.exit(1)
 
-    response.raise_for_status()
+    logger.debug("Billing response: %s" % response.json())
     event_id = response.json()["usageEventId"]
     logger.info("Recorded metering event ID: %s" % event_id)
-    logger.debug("Billing response: %s" % response.json())
 
     billing_record = {}
     billing_record["managed_app_id"] = managed_app_id
