@@ -1,13 +1,11 @@
-from constance import config
 from datetime import datetime, timezone
 from dateutil.relativedelta import relativedelta
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
+from enum import Enum
 
 from azure_billing.main.models import JobHostSummary
-from azure_billing.billing.models import (
-    BilledHost,
-    BillingRecord,
-)
+from azure_billing.billing.models import BilledHost, BillingRecord, DateSetting
 
 import logging
 
@@ -41,12 +39,55 @@ class BillingRouter:
         return None
 
 
-def _calcBillingPeriod(current_date=datetime.now(timezone.utc)):
+class DateSettingEnum(Enum):
+    INSTALL_DATE = 1
+    PERIOD_START = 2
+    PERIOD_END = 3
+
+
+def getDate(date_setting):
+    """
+    Gets current date val from db
+    """
+    if isinstance(date_setting, DateSettingEnum):
+        try:
+            qs = DateSetting.objects.filter(name=date_setting.name).get()
+        except ObjectDoesNotExist:
+            # Special handling for install date, set it if empty
+            if date_setting == DateSettingEnum.INSTALL_DATE:
+                install = datetime.now(timezone.utc).replace(
+                    hour=0, minute=0, second=0, microsecond=0
+                )
+                setDate(DateSettingEnum.INSTALL_DATE, install)
+                logger.info(
+                    "New installation, install date [%s]"
+                    % install.strftime("%m-%d-%Y")
+                )
+                return install
+            return None
+        return qs.date
+    else:
+        logger.error("Invalid date setting: %s" % date_setting)
+
+
+def setDate(date_setting, value):
+    """
+    Sets date val in db
+    """
+    if isinstance(date_setting, DateSettingEnum):
+        DateSetting.objects.update_or_create(
+            name=date_setting.name, defaults={"date": value}
+        )
+    else:
+        logger.error("Invalid date setting: %s" % date_setting)
+
+
+def calcBillingPeriod(current_date=datetime.now(timezone.utc)):
     """
     Calculates the billing period using install date
     and today's date.
     """
-    install_date = config.INSTALL_DATE
+    install_date = getDate(DateSettingEnum.INSTALL_DATE)
     check_date = install_date
     offset = 0
     while current_date >= check_date:
@@ -58,18 +99,18 @@ def _calcBillingPeriod(current_date=datetime.now(timezone.utc)):
 
 
 def rolloverIfNeeded():
-    (period_start, period_end) = _calcBillingPeriod()
+    (period_start, period_end) = calcBillingPeriod()
     logger.info("Billing period (%s) to (%s)." % (period_start, period_end))
     # Check if stored billing period matches calculated billing period
-    if period_start != config.BILLING_PERIOD_START:
+    if period_start != getDate(DateSettingEnum.PERIOD_START):
         logger.info("Resetting billed host list.")
         # Set billed hosts as rolled over to reset billing
         BilledHost.objects.filter(rollover_date__isnull=True).update(
             rollover_date=models.functions.Now()
         )
         # Store new billing period
-        config.BILLING_PERIOD_START = period_start
-        config.BILLING_PERIOD_END = period_end
+        setDate(DateSettingEnum.PERIOD_START, period_start)
+        setDate(DateSettingEnum.PERIOD_END, period_end)
 
 
 def getUnbilledHosts(startDate):

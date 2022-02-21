@@ -38,7 +38,8 @@ def main():
     db.rolloverIfNeeded()
 
     logger.info("Checking for unbilled hosts.")
-    unbilled = db.getUnbilledHosts()
+    (period_start, _) = db.calcBillingPeriod()
+    unbilled = db.getUnbilledHosts(period_start)
 
     if unbilled:
         logger.info(

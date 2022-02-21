@@ -55,3 +55,18 @@ class BillingRecord(models.Model):
     usage_event_id = models.CharField(
         max_length=1024,
     )
+
+
+class DateSetting(models.Model):
+    """
+    Store important dates
+    """
+
+    class Meta:
+        app_label = "billing"
+        verbose_name_plural = "date settings"
+        ordering = ("-pk",)
+
+    name = models.CharField(max_length=1024, primary_key=True)
+
+    date = models.DateTimeField()
