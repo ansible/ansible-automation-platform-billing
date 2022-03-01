@@ -7,7 +7,7 @@ import sys
 def main():
     sys.path.append(os.path.join(os.getcwd(), ".."))
     """Run administrative tasks."""
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "azure_billing.settings")
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "aap_billing.settings")
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

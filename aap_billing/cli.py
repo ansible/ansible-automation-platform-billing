@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from azure_billing.azure import azapi
+from aap_billing.azure import azapi
 from django.conf import settings
 
 import argparse
@@ -13,7 +13,7 @@ logger = logging.getLogger()
 
 def processArgs():
     parser = argparse.ArgumentParser(
-        description="Ansible Automation Platform Azure billing connector",
+        description="Ansible Automation Platform billing connector",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
@@ -31,9 +31,9 @@ def main():
     )
 
     # Bootstrap django (orm only)
-    os.environ["DJANGO_SETTINGS_MODULE"] = "azure_billing.settings"
+    os.environ["DJANGO_SETTINGS_MODULE"] = "aap_billing.settings"
     django.setup()
-    from azure_billing.db import db  # noqa: E402 - Must follow django setup
+    from aap_billing.db import db  # noqa: E402 - Must follow django setup
 
     db.rolloverIfNeeded()
 
@@ -43,7 +43,7 @@ def main():
 
     if unbilled:
         logger.info(
-            "%d unbilled hosts found, sending billing data to Azure"
+            "%d unbilled hosts found, sending billing data to Metering Service"
             % len(unbilled)
         )
 

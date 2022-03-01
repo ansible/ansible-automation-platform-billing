@@ -1,7 +1,7 @@
-from azure_billing.azure import azapi
-from azure_billing.billing.models import BilledHost, BillingRecord
-from azure_billing.main.models import JobHostSummary
-from azure_billing.db import db
+from aap_billing.azure import azapi
+from aap_billing.billing.models import BilledHost, BillingRecord
+from aap_billing.main.models import JobHostSummary
+from aap_billing.db import db
 from datetime import datetime
 from django.conf import settings
 from django.db import connection

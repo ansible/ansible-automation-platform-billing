@@ -4,8 +4,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from enum import Enum
 
-from azure_billing.main.models import JobHostSummary
-from azure_billing.billing.models import BilledHost, BillingRecord, DateSetting
+from aap_billing.main.models import JobHostSummary
+from aap_billing.billing.models import BilledHost, BillingRecord, DateSetting
 
 import logging
 

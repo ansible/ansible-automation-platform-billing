@@ -1,5 +1,5 @@
-Ansible Automation Platform Azure Billing
-=========================================
+Ansible Automation Platform Billing
+===================================
 
 Captures automation usage for reporting to hyperscaler metering system.
 
@@ -17,8 +17,8 @@ cd ansible-automation-platform-azure-billing
 
 Create a virtual environement for development and activate the venv.
 ```
-python -m venv aap-billing
-source aap-billing/bin/activate
+python -m venv aap-billing-venv
+source aap-billing-venv/bin/activate
 ```
 
 Install the required dependencies.
