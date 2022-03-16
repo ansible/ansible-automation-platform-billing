@@ -16,9 +16,7 @@ def processArgs():
         description="Ansible Automation Platform Azure billing connector",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument(
-        "-d", action="store_true", dest="debugmode", help="Enable debug output"
-    )
+    parser.add_argument("-d", action="store_true", dest="debugmode", help="Enable debug output")
     return parser.parse_args()
 
 
@@ -35,6 +33,9 @@ def main():
     django.setup()
     from azure_billing.db import db  # noqa: E402 - Must follow django setup
 
+    # Also ensures DB has not gone into Read-Only mode (happens when full)
+    db.recordLastRunDateTime()
+
     db.rolloverIfNeeded()
 
     logger.info("Checking for unbilled hosts.")
@@ -42,10 +43,7 @@ def main():
     unbilled = db.getUnbilledHosts(period_start)
 
     if unbilled:
-        logger.info(
-            "%d unbilled hosts found, sending billing data to Azure"
-            % len(unbilled)
-        )
+        logger.info("%d unbilled hosts found, sending billing data to Azure" % len(unbilled))
 
         billing_record = azapi.pegBillingCounter(settings.DIMENSION, unbilled)
 

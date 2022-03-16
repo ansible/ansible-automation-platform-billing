@@ -36,9 +36,7 @@ class BillingRecord(models.Model):
 
     quantity = models.IntegerField()
 
-    hosts = models.CharField(
-        max_length=1024,
-    )
+    hosts = models.TextField()
 
     managed_app_id = models.CharField(
         max_length=1024,
