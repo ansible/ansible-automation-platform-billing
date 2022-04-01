@@ -1,6 +1,7 @@
 #!/usr/bin/python3
-
+from aap_billing import BILLING_INTERFACE_AWS
 from aap_billing.azure import azapi
+from aap_billing.aws import awsapi
 from django.conf import settings
 
 import argparse
@@ -47,7 +48,14 @@ def main():
             % len(unbilled)
         )
 
-        billing_record = azapi.pegBillingCounter(settings.DIMENSION, unbilled)
+        if BILLING_INTERFACE_AWS == settings.BILLING_INTERFACE:
+            billing_record = awsapi.pegBillingCounter(
+                settings.DIMENSION, unbilled
+            )
+        else:
+            billing_record = azapi.pegBillingCounter(
+                settings.DIMENSION, unbilled
+            )
 
         # Record billing data
         db.recordBillingInstance(billing_record)

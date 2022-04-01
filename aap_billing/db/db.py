@@ -2,8 +2,10 @@ from datetime import datetime, timezone
 from dateutil.relativedelta import relativedelta
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
+from django.conf import settings
 from enum import Enum
 
+from aap_billing import BILLING_INTERFACE_AWS
 from aap_billing.main.models import JobHostSummary
 from aap_billing.billing.models import BilledHost, BillingRecord, DateSetting
 
@@ -87,6 +89,11 @@ def calcBillingPeriod(current_date=datetime.now(timezone.utc)):
     Calculates the billing period using install date
     and today's date.
     """
+    if settings.BILLING_INTERFACE == BILLING_INTERFACE_AWS:
+        period_start = current_date.replace(day=1)
+        period_end = period_start + relativedelta(days=-1, months=1)
+        return (period_start, period_end)
+
     install_date = getDate(DateSettingEnum.INSTALL_DATE)
     check_date = install_date
     offset = 0
