@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 import logging
 import sys
 import boto3
-from botocore.exceptions import ClientError
 from django.conf import settings
 
 logger = logging.getLogger()
@@ -13,9 +12,7 @@ def pegBillingCounter(dimension, hosts):
     """
     Send usage quantity to billing API
     """
-    mms_client = boto3.client(
-        BOTO3_METERING_MARKETPLACE_CLIENT, region_name=settings.REGION_NAME
-    )
+    mms_client = boto3.client(BOTO3_METERING_MARKETPLACE_CLIENT, region_name=settings.REGION_NAME)
     utc_now = datetime.now(timezone.utc).replace(microsecond=0)
     resource_id = ""
     plan = ""

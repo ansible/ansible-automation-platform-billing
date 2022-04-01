@@ -17,9 +17,7 @@ def processArgs():
         description="Ansible Automation Platform billing connector",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument(
-        "-d", action="store_true", dest="debugmode", help="Enable debug output"
-    )
+    parser.add_argument("-d", action="store_true", dest="debugmode", help="Enable debug output")
     return parser.parse_args()
 
 
@@ -36,6 +34,9 @@ def main():
     django.setup()
     from aap_billing.db import db  # noqa: E402 - Must follow django setup
 
+    # Also ensures DB has not gone into Read-Only mode (happens when full)
+    db.recordLastRunDateTime()
+
     db.rolloverIfNeeded()
 
     logger.info("Checking for unbilled hosts.")
@@ -43,19 +44,12 @@ def main():
     unbilled = db.getUnbilledHosts(period_start)
 
     if unbilled:
-        logger.info(
-            "%d unbilled hosts found, sending billing data to Metering Service"
-            % len(unbilled)
-        )
+        logger.info("%d unbilled hosts found, sending billing data to Metering Service" % len(unbilled))
 
         if BILLING_INTERFACE_AWS == settings.BILLING_INTERFACE:
-            billing_record = awsapi.pegBillingCounter(
-                settings.DIMENSION, unbilled
-            )
+            billing_record = awsapi.pegBillingCounter(settings.DIMENSION, unbilled)
         else:
-            billing_record = azapi.pegBillingCounter(
-                settings.DIMENSION, unbilled
-            )
+            billing_record = azapi.pegBillingCounter(settings.DIMENSION, unbilled)
 
         # Record billing data
         db.recordBillingInstance(billing_record)

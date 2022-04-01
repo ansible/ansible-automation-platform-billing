@@ -45,6 +45,7 @@ class DateSettingEnum(Enum):
     INSTALL_DATE = 1
     PERIOD_START = 2
     PERIOD_END = 3
+    LAST_RUN_DATE = 4
 
 
 def getDate(date_setting):
@@ -57,14 +58,9 @@ def getDate(date_setting):
         except ObjectDoesNotExist:
             # Special handling for install date, set it if empty
             if date_setting == DateSettingEnum.INSTALL_DATE:
-                install = datetime.now(timezone.utc).replace(
-                    hour=0, minute=0, second=0, microsecond=0
-                )
+                install = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
                 setDate(DateSettingEnum.INSTALL_DATE, install)
-                logger.info(
-                    "New installation, install date [%s]"
-                    % install.strftime("%m-%d-%Y")
-                )
+                logger.info("New installation, install date [%s]" % install.strftime("%m-%d-%Y"))
                 return install
             return None
         return qs.date
@@ -77,9 +73,7 @@ def setDate(date_setting, value):
     Sets date val in db
     """
     if isinstance(date_setting, DateSettingEnum):
-        DateSetting.objects.update_or_create(
-            name=date_setting.name, defaults={"date": value}
-        )
+        DateSetting.objects.update_or_create(name=date_setting.name, defaults={"date": value})
     else:
         logger.error("Invalid date setting: %s" % date_setting)
 
@@ -102,6 +96,7 @@ def calcBillingPeriod(current_date=datetime.now(timezone.utc)):
         check_date = install_date + relativedelta(months=offset)
     period_start = install_date + relativedelta(months=(offset - 1))
     period_end = install_date + relativedelta(days=-1, months=offset)
+    period_end = period_end.replace(hour=23, minute=59, second=59)
     return (period_start, period_end)
 
 
@@ -112,9 +107,7 @@ def rolloverIfNeeded():
     if period_start != getDate(DateSettingEnum.PERIOD_START):
         logger.info("Resetting billed host list.")
         # Set billed hosts as rolled over to reset billing
-        BilledHost.objects.filter(rollover_date__isnull=True).update(
-            rollover_date=models.functions.Now()
-        )
+        BilledHost.objects.filter(rollover_date__isnull=True).update(rollover_date=models.functions.Now())
         # Store new billing period
         setDate(DateSettingEnum.PERIOD_START, period_start)
         setDate(DateSettingEnum.PERIOD_END, period_end)
@@ -129,14 +122,9 @@ def getUnbilledHosts(startDate):
         # Grabs latest modified execution for hosts with multiple
         # executions
         x.host_name: x.modified
-        for x in JobHostSummary.objects.filter(
-            modified__gt=startDate
-        ).order_by("host_name", "modified")
+        for x in JobHostSummary.objects.filter(modified__gt=startDate).order_by("host_name", "modified")
     }
-    billed_hosts = {
-        x.host_name: x.billed_date
-        for x in BilledHost.objects.filter(rollover_date__isnull=True)
-    }
+    billed_hosts = {x.host_name: x.billed_date for x in BilledHost.objects.filter(rollover_date__isnull=True)}
     new_hosts = []
     for host_name in executed_hosts.keys():
         if host_name not in billed_hosts.keys():
@@ -168,3 +156,11 @@ def recordBillingInstance(billing_data):
         usage_event_id=billing_data["usage_event_id"],
     )
     b.save()
+
+
+def recordLastRunDateTime():
+    """
+    Store current date/time as marker for last time this module ran.
+    (main purpose is to ensure database availability/writeability)
+    """
+    setDate(DateSettingEnum.LAST_RUN_DATE, models.functions.Now())

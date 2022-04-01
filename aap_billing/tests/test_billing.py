@@ -62,9 +62,7 @@ def mocked_azure_apis(*args, **kwargs):
     elif "applications" in args[0]:
         # Return managed application packet
         data = {
-            "properties": {
-                "billingDetails": {"resourceUsageId": "resource_usage_id_val"}
-            },
+            "properties": {"billingDetails": {"resourceUsageId": "resource_usage_id_val"}},
             "plan": {"name": "scottsplan"},
         }
         return MockResponse(data, 200)
@@ -108,14 +106,13 @@ class BillingTests(TransactionTestCase):
                 datetime(2022, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
             )
             today = datetime(2022, 2, 7, tzinfo=timezone.utc)
+            db.recordLastRunDateTime()
+            run_date = db.getDate(db.DateSettingEnum.LAST_RUN_DATE)
+            self.assertEqual(run_date.day, datetime.now().day)
             (period_start, _) = db.calcBillingPeriod()
-            unbilled = db.getUnbilledHosts(
-                period_start
-            )  # 2 hosts from fixtures
+            unbilled = db.getUnbilledHosts(period_start)  # 2 hosts from fixtures
             self.assertEqual(len(unbilled), 2)
-            billing_record = azapi.pegBillingCounter(
-                settings.DIMENSION, unbilled
-            )
+            billing_record = azapi.pegBillingCounter(settings.DIMENSION, unbilled)
             db.recordBillingInstance(billing_record)
             records = BillingRecord.objects.all()  # One new record
             self.assertEqual(len(records), 1)
@@ -123,9 +120,7 @@ class BillingTests(TransactionTestCase):
             BilledHost.objects.all()  # Verify billed_date is today
             for billed_host in BilledHost.objects.all():
                 if billed_host in unbilled:
-                    self.assertEqual(
-                        billed_host.billed_date.date(), today.date()
-                    )
+                    self.assertEqual(billed_host.billed_date.date(), today.date())
 
             # Update billing period directly
             db.setDate(
@@ -138,9 +133,7 @@ class BillingTests(TransactionTestCase):
             )
             # Do rollover
             db.rolloverIfNeeded()
-            unbilled = db.getUnbilledHosts(
-                period_start
-            )  # Billed hosts cleared, all 3 are unbilled
+            unbilled = db.getUnbilledHosts(period_start)  # Billed hosts cleared, all 3 are unbilled
             self.assertEqual(len(unbilled), 3)
 
     def testMainAws(self):
@@ -155,17 +148,13 @@ class BillingTests(TransactionTestCase):
             )
             today = datetime(2022, 2, 7, tzinfo=timezone.utc)
             (period_start, _) = db.calcBillingPeriod()
-            unbilled = db.getUnbilledHosts(
-                period_start
-            )  # 2 hosts from fixtures
+            unbilled = db.getUnbilledHosts(period_start)  # 2 hosts from fixtures
             self.assertEqual(len(unbilled), 2)
             with mock.patch(
                 "botocore.client.BaseClient._make_api_call",
                 new=mock_make_api_call,
             ):
-                billing_record = awsapi.pegBillingCounter(
-                    settings.DIMENSION, unbilled
-                )
+                billing_record = awsapi.pegBillingCounter(settings.DIMENSION, unbilled)
                 db.recordBillingInstance(billing_record)
                 records = BillingRecord.objects.all()  # One new record
                 self.assertEqual(len(records), 1)
@@ -173,9 +162,7 @@ class BillingTests(TransactionTestCase):
                 BilledHost.objects.all()  # Verify billed_date is today
                 for billed_host in BilledHost.objects.all():
                     if billed_host in unbilled:
-                        self.assertEqual(
-                            billed_host.billed_date.date(), today.date()
-                        )
+                        self.assertEqual(billed_host.billed_date.date(), today.date())
 
                 # Update billing period directly
                 db.setDate(
@@ -188,34 +175,24 @@ class BillingTests(TransactionTestCase):
                 )
                 # Do rollover
                 db.rolloverIfNeeded()
-                unbilled = db.getUnbilledHosts(
-                    period_start
-                )  # Billed hosts cleared, all 3 are unbilled
+                unbilled = db.getUnbilledHosts(period_start)  # Billed hosts cleared, all 3 are unbilled
                 self.assertEqual(len(unbilled), 3)
 
     def testHostsToReport(self):
-        hosts = db.getUnbilledHosts(
-            datetime(2021, 12, 31, tzinfo=timezone.utc)
-        )
+        hosts = db.getUnbilledHosts(datetime(2021, 12, 31, tzinfo=timezone.utc))
         expectedUnbilled = ["host2", "host3"]
         self.assertEqual(len(hosts), 2)
         for host in hosts:
             self.assertIn(host, expectedUnbilled)
 
     def testMarkHostsBilled(self):
-        hosts = db.getUnbilledHosts(
-            datetime(2021, 12, 31, tzinfo=timezone.utc)
-        )
+        hosts = db.getUnbilledHosts(datetime(2021, 12, 31, tzinfo=timezone.utc))
         db.markHostsBilled(hosts)
         for host in hosts:
-            qs = BilledHost.objects.filter(host_name=host).order_by(
-                "-billed_date"
-            )
+            qs = BilledHost.objects.filter(host_name=host).order_by("-billed_date")
             self.assertTrue(qs.exists())
             self.assertEqual(qs.first().rollover_date, None)
-        shouldbezero = db.getUnbilledHosts(
-            datetime(2021, 12, 31, tzinfo=timezone.utc)
-        )
+        shouldbezero = db.getUnbilledHosts(datetime(2021, 12, 31, tzinfo=timezone.utc))
         self.assertEqual(len(shouldbezero), 0)
 
     def testSeedInstallDate(self):
@@ -236,13 +213,9 @@ class BillingTests(TransactionTestCase):
             for datum in data:
                 db.setDate(
                     db.DateSettingEnum.INSTALL_DATE,
-                    datetime(
-                        datum[0], datum[1], datum[2], tzinfo=timezone.utc
-                    ),
+                    datetime(datum[0], datum[1], datum[2], tzinfo=timezone.utc),
                 )
-                (period_start, period_end) = db.calcBillingPeriod(
-                    current_date=today
-                )
+                (period_start, period_end) = db.calcBillingPeriod(current_date=today)
                 self.assertEqual(period_start.year, datum[3])
                 self.assertEqual(period_start.month, datum[4])
                 self.assertEqual(period_start.day, datum[5])
@@ -267,13 +240,9 @@ class BillingTests(TransactionTestCase):
             for datum in data:
                 db.setDate(
                     db.DateSettingEnum.INSTALL_DATE,
-                    datetime(
-                        datum[0], datum[1], datum[2], tzinfo=timezone.utc
-                    ),
+                    datetime(datum[0], datum[1], datum[2], tzinfo=timezone.utc),
                 )
-                (period_start, period_end) = db.calcBillingPeriod(
-                    current_date=today
-                )
+                (period_start, period_end) = db.calcBillingPeriod(current_date=today)
                 self.assertEqual(period_start.year, datum[3])
                 self.assertEqual(period_start.month, datum[4])
                 self.assertEqual(period_start.day, datum[5])
@@ -294,13 +263,9 @@ class BillingTests(TransactionTestCase):
             for datum in data:
                 db.setDate(
                     db.DateSettingEnum.INSTALL_DATE,
-                    datetime(
-                        datum[0], datum[1], datum[2], tzinfo=timezone.utc
-                    ),
+                    datetime(datum[0], datum[1], datum[2], tzinfo=timezone.utc),
                 )
-                (period_start, period_end) = db.calcBillingPeriod(
-                    current_date=today
-                )
+                (period_start, period_end) = db.calcBillingPeriod(current_date=today)
                 self.assertEqual(period_start.year, datum[3])
                 self.assertEqual(period_start.month, datum[4])
                 self.assertEqual(period_start.day, datum[5])
@@ -325,13 +290,9 @@ class BillingTests(TransactionTestCase):
             for datum in data:
                 db.setDate(
                     db.DateSettingEnum.INSTALL_DATE,
-                    datetime(
-                        datum[0], datum[1], datum[2], tzinfo=timezone.utc
-                    ),
+                    datetime(datum[0], datum[1], datum[2], tzinfo=timezone.utc),
                 )
-                (period_start, period_end) = db.calcBillingPeriod(
-                    current_date=today
-                )
+                (period_start, period_end) = db.calcBillingPeriod(current_date=today)
                 self.assertEqual(period_start.year, datum[3])
                 self.assertEqual(period_start.month, datum[4])
                 self.assertEqual(period_start.day, datum[5])
@@ -345,9 +306,7 @@ class BillingTests(TransactionTestCase):
         with self.settings(BILLING_INTERFACE=BILLING_INTERFACE_AZURE):
             today = datetime.now(timezone.utc)
 
-            hosts = db.getUnbilledHosts(
-                datetime(2021, 12, 31, tzinfo=timezone.utc)
-            )
+            hosts = db.getUnbilledHosts(datetime(2021, 12, 31, tzinfo=timezone.utc))
             billing_data = azapi.pegBillingCounter(settings.DIMENSION, hosts)
             db.recordBillingInstance(billing_data)
             record = BillingRecord.objects.first()
@@ -363,16 +322,12 @@ class BillingTests(TransactionTestCase):
             PRODUCT_CODE="aap-001",
         ):
             today = datetime.now(timezone.utc)
-            hosts = db.getUnbilledHosts(
-                datetime(2021, 12, 31, tzinfo=timezone.utc)
-            )
+            hosts = db.getUnbilledHosts(datetime(2021, 12, 31, tzinfo=timezone.utc))
             with mock.patch(
                 "botocore.client.BaseClient._make_api_call",
                 new=mock_make_api_call,
             ):
-                billing_data = awsapi.pegBillingCounter(
-                    settings.DIMENSION, hosts
-                )
+                billing_data = awsapi.pegBillingCounter(settings.DIMENSION, hosts)
                 db.recordBillingInstance(billing_data)
                 record = BillingRecord.objects.first()
                 self.assertEqual(record.quantity, 2)

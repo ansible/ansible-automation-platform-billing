@@ -22,9 +22,7 @@ def _getJsonPayload(url, headers, data_type="data"):
     try:
         response = requests.get(url, headers=headers)
     except requests.exceptions.RequestException as e:
-        logger.error(
-            "Unable to get %s from Azure, abort: %s" % (data_type, repr(e))
-        )
+        logger.error("Unable to get %s from Azure, abort: %s" % (data_type, repr(e)))
         sys.exit(1)
     response.raise_for_status()
     return response.json()
@@ -35,10 +33,7 @@ def fetchAccessToken():
     Fetch the system identity access token from the metadata store
     """
     resource = "https%3A%2F%2Fmanagement.azure.com%2F"
-    url = (
-        "http://%s/metadata/identity/oauth2/token?api-version=%s&resource=%s"
-        % (metadata_ip, token_api_version, resource)
-    )
+    url = "http://%s/metadata/identity/oauth2/token?api-version=%s&resource=%s" % (metadata_ip, token_api_version, resource)
     j = _getJsonPayload(url, metadata_header, "access token")
     token = j["access_token"]
     logger.debug("Fetched access token.")
@@ -56,10 +51,7 @@ def fetchSubscriptionAndNodeResourceGroup():
     j = _getJsonPayload(url, metadata_header, "subscription")
     subId = j["compute"]["subscriptionId"]
     nrg = j["compute"]["resourceGroupName"]
-    logger.debug(
-        "Fetched subscription ID (%s) and node resource group (%s)."
-        % (subId, nrg)
-    )
+    logger.debug("Fetched subscription ID (%s) and node resource group (%s)." % (subId, nrg))
     return (subId, nrg)
 
 
@@ -81,9 +73,7 @@ def fetchManagedAppId(subscription_id, resource_group_name, access_token):
     return managed_app_id
 
 
-def fetchManagedResourceGroup(
-    subscription_id, node_resource_group_name, access_token
-):
+def fetchManagedResourceGroup(subscription_id, node_resource_group_name, access_token):
     """
     Fetch managed resource group name from node resource group metadata
     """
@@ -97,9 +87,7 @@ def fetchManagedResourceGroup(
     )
     j = _getJsonPayload(url, auth_header, "managed resource group")
     managed_resource_group = j["tags"]["aks-managed-cluster-rg"]
-    logger.debug(
-        "Fetched managed resource group (%s)" % managed_resource_group
-    )
+    logger.debug("Fetched managed resource group (%s)" % managed_resource_group)
     return managed_resource_group
 
 
@@ -123,9 +111,7 @@ def fetchResourceIdAndPlan(managed_app_id, access_token):
         sys.exit(1)
     resource_id = j["properties"]["billingDetails"]["resourceUsageId"]
     plan = j["plan"]["name"]
-    logger.debug(
-        "Fetched resource ID (%s) and plan (%s)" % (resource_id, plan)
-    )
+    logger.debug("Fetched resource ID (%s) and plan (%s)" % (resource_id, plan))
     return (resource_id, plan)
 
 
@@ -143,16 +129,11 @@ def pegBillingCounter(dimension, hosts):
     billing_data["resourceId"] = resource_id
     billing_data["dimension"] = dimension
     billing_data["quantity"] = len(hosts)
-    billing_data["effectiveStartTime"] = (
-        datetime.now().replace(microsecond=0).isoformat()
-    )
+    billing_data["effectiveStartTime"] = datetime.now().replace(microsecond=0).isoformat()
     billing_data["planId"] = plan
     logger.debug("Billing payload: %s" % billing_data)
     auth_header = {"Authorization": "Bearer %s" % token}
-    url = (
-        "https://marketplaceapi.microsoft.com/api/usageEvent?api-version=%s"
-        % billing_api_version
-    )
+    url = "https://marketplaceapi.microsoft.com/api/usageEvent?api-version=%s" % billing_api_version
     try:
         response = requests.post(url, headers=auth_header, json=billing_data)
         response.raise_for_status()
