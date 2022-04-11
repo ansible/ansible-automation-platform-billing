@@ -10,3 +10,5 @@ ansible_automation_platform_billing.egg.info/
 .vscode/
 .python-version
 aap-billing-venv/
+.scannerwork/
+**/.coverage

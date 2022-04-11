@@ -1,47 +1,60 @@
 Ansible Automation Platform Billing
 ===================================
 
-Captures automation usage for reporting to hyperscaler metering system.
+Captures automation usage for reporting to hyperscaler metering systems.
 
-# Getting Started
+This module uses the Django framework (ORM) and requires a PostgreSQL database
+of its own as well as at least read access to the Ansible Automation Platform controller database.
 
-To get started developing against ansible-automation-platform-azure-billing first clone a local copy of the git repository.
-```
-git clone https://github.com/ansible/ansible-automation-platform-azure-billing.git
-```
+Currently supporting Azure and AWS.
+  - [MS Azure Marketplace Metered Billing API](https://docs.microsoft.com/en-us/azure/marketplace/marketplace-metering-service-apis)
+  - [AWS Marketplace Metering Service](https://docs.aws.amazon.com/marketplacemetering/latest/APIReference/Welcome.html)
 
-Change directories to the local repository.
-```
-cd ansible-automation-platform-azure-billing
-```
 
-Create a virtual environement for development and activate the venv.
-```
-python -m venv aap-billing-venv
-source aap-billing-venv/bin/activate
-```
+Getting Started
+---------------
 
-Install the required dependencies.
-```
-pip install .
-```
+To get started developing against ansible-automation-platform-azure-billing first clone a local copy of the git repository::
 
-Install devlopment dependencies.
-```
-pip install tox
-pip install -r test-requirements.txt
-```
+    git clone https://github.com/ansible/ansible-automation-platform-azure-billing.git
 
-# Linting
 
-Run the linting via tox.
-```
-tox -e linters
-```
+Change directories to the local repository::
 
-# Testing
+    cd ansible-automation-platform-azure-billing
 
-Run the unit tests via tox.
-```
-tox -e unittest
-```
+
+Install tox if not already present::
+    
+    pip install tox
+
+
+Create and activate a virtual environement for development::
+
+    tox -e venv
+    source .tox/venv/bin/activate
+
+
+Linting
+-------
+
+Run the linting (black, flake8, and shellcheck) via tox::
+
+    tox -e linters
+
+
+Testing
+-------
+
+Run the unit tests via tox::
+
+    tox -e unittest
+
+
+SonarQube
+---------
+
+Run static analysis and code coverage via tox.  Results posted to the
+internal [Red Hat SonarQube](***REMOVED***) instance::
+
+    tox -e sonarqube

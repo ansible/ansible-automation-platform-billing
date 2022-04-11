@@ -109,7 +109,7 @@ class BillingTests(TransactionTestCase):
             db.recordLastRunDateTime()
             run_date = db.getDate(db.DateSettingEnum.LAST_RUN_DATE)
             self.assertEqual(run_date.day, datetime.now().day)
-            (period_start, _) = db.calcBillingPeriod()
+            (period_start, _) = db.calcBillingPeriod(today)
             unbilled = db.getUnbilledHosts(period_start)  # 2 hosts from fixtures
             self.assertEqual(len(unbilled), 2)
             billing_record = azapi.pegBillingCounter(settings.DIMENSION, unbilled)
@@ -147,7 +147,7 @@ class BillingTests(TransactionTestCase):
                 datetime(2022, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
             )
             today = datetime(2022, 2, 7, tzinfo=timezone.utc)
-            (period_start, _) = db.calcBillingPeriod()
+            (period_start, _) = db.calcBillingPeriod(today)
             unbilled = db.getUnbilledHosts(period_start)  # 2 hosts from fixtures
             self.assertEqual(len(unbilled), 2)
             with mock.patch(

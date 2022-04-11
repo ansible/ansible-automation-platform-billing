@@ -1,0 +1,19 @@
+name: PR Validation
+
+on: [ push, pull_request, workflow_dispatch ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      # Checks-out under $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+
+      - name: Install tox
+        run: pip install tox
+
+      - name: Run linters
+        run: tox -e linters
+
+      - name: Run unit tests
+        run: tox -e unittest
