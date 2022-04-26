@@ -58,3 +58,12 @@ Run static analysis and code coverage via tox.  Results posted to the
 internal [Red Hat SonarQube](***REMOVED***) instance::
 
     tox -e sonarqube
+
+
+Build Image
+-----------
+
+To build and push a new image of the billing container::
+
+    podman build . -t quay.io/aap/ansible-automation-platform-cloud-billing
+    podman push quay.io/aap/ansible-automation-platform-cloud-billing
