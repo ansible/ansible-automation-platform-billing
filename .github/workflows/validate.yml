@@ -17,3 +17,6 @@ jobs:
 
       - name: Run unit tests
         run: tox -e unittest
+
+      - name: Run sonarqube analysis
+        run: tox -e sonarqube
