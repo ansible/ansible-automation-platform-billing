@@ -101,18 +101,27 @@ def fetchResourceIdAndPlan(managed_app_id, access_token):
         managed_app_api_version,
     )
     j = _getJsonPayload(url, auth_header, "resource usage ID and plan")
-    if "billingDetails" not in j["properties"]:
+    if "billingDetails" in j["properties"]:
+        resource_id = j["properties"]["billingDetails"]["resourceUsageId"]
+        plan = j["plan"]["name"]
+        logger.debug("Fetched resource ID (%s) and plan (%s)" % (resource_id, plan))
+        return (resource_id, plan)
+    elif j["kind"] != "MarketPlace":
+        logger.info(
+            """
+            Billing is not active/functional in single tenant deployments
+            """
+        )
+        sys.exit(0)
+    else:
         logger.error(
             """
-            No billing details present on managed app.
-              Single tenant deployment?
+            No billing details present on managed app metadata.
+            Check offer/plan billing configuration.  If billing
+            is configured properly, report this error.
             """
         )
         sys.exit(1)
-    resource_id = j["properties"]["billingDetails"]["resourceUsageId"]
-    plan = j["plan"]["name"]
-    logger.debug("Fetched resource ID (%s) and plan (%s)" % (resource_id, plan))
-    return (resource_id, plan)
 
 
 def pegBillingCounter(dimension, hosts):
