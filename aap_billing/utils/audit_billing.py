@@ -24,6 +24,7 @@ class PeriodRecord:
     def __init__(self, period_date):
         (self.start_date, self.end_date) = db.calcBillingPeriod(period_date)
         self.records = BillingRecord.objects.filter(billed_date__range=(self.start_date, self.end_date)).order_by("-billed_date")
+        self.unreported = BilledHost.objects.filter(billed_date__range=(self.start_date, self.end_date), reported=False).order_by("-billed_date")
 
     def getStartDate(self):
         return self.start_date
@@ -34,16 +35,19 @@ class PeriodRecord:
     def getRecords(self):
         return self.records
 
+    def getUnreportedRecords(self):
+        return self.unreported
+
 
 # Main
 def main():
-    global db, BillingRecord
+    global db, BillingRecord, BilledHost
     args = processArgs()
     # Bootstrap django (orm only)
     os.environ["DJANGO_SETTINGS_MODULE"] = "aap_billing.settings"
     django.setup()
     from aap_billing.db import db  # noqa: E402 - Must follow django setup
-    from aap_billing.billing.models import BillingRecord
+    from aap_billing.billing.models import BillingRecord, BilledHost
 
     # Print header
     csv_out = csv.writer(sys.stdout)
@@ -53,6 +57,10 @@ def main():
     while period_date < datetime.now(timezone.utc):
         pr = PeriodRecord(period_date)
         records = pr.getRecords()
+        unreported = pr.getUnreportedRecords()
+        for rec in unreported:
+            hosts_or_quant = rec.host_name if args.verbose else 1
+            csv_out.writerow([rec.billed_date.strftime("%m/%d/%Y %H:%M:%S"), "included", hosts_or_quant])
         for rec in records:
             hosts_or_quant = rec.hosts if args.verbose else rec.quantity
             csv_out.writerow([rec.billed_date.strftime("%m/%d/%Y %H:%M:%S"), rec.usage_event_id, hosts_or_quant])

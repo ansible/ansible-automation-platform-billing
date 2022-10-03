@@ -62,8 +62,8 @@ def mocked_azure_apis(*args, **kwargs):
     elif "applications" in args[0]:
         # Return managed application packet
         data = {
-            "properties": {"billingDetails": {"resourceUsageId": "resource_usage_id_val"}},
-            "plan": {"name": "scottsplan"},
+            "properties": {"billingDetails": {"resourceUsageId": "resource_usage_id_val"}, "publisherTenantId": "***REMOVED***"},
+            "plan": {"name": "scottsplan", "product": "bhavensttest-preview"},
         }
         return MockResponse(data, 200)
     elif "usageEvent" in args[0]:
@@ -334,3 +334,26 @@ class BillingTests(TransactionTestCase):
                 self.assertEqual(record.billed_date.day, today.day)
                 self.assertEqual(record.billed_date.month, today.month)
                 self.assertEqual(record.billed_date.year, today.year)
+
+    def testBaseQuantity(self):
+        res = db.getBaseQuantity("offer", "plan")
+        self.assertIsNone(res, msg="Base quantity should not exist")
+        db.recordBaseQuantity("offer", "plan", 10)
+        res = db.getBaseQuantity("offer", "plan")
+        self.assertEqual(res, 10, msg="Base quantity did not match expected: %d" % res)
+        res = db.getBaseQuantity("offer", "plan2")
+        self.assertIsNone(res, msg="Base quantity for plan2 should not exist.")
+        with self.assertRaises(RuntimeError):
+            db.recordBaseQuantity("offer", "plan", 99)
+
+    def testBillingThreshold(self):
+        # Storage of hosts lower than billing threshold check
+        processed_host_count = db.getProcessedHostCount(datetime(2021, 12, 31, tzinfo=timezone.utc))
+        self.assertEqual(processed_host_count, 3)
+        hosts = db.getUnbilledHosts(datetime(2021, 12, 31, tzinfo=timezone.utc))
+        self.assertEqual(len(hosts), 2)
+        db.markHostsBilled(hosts, False)
+        hosts = db.getUnbilledHosts(datetime(2021, 12, 31, tzinfo=timezone.utc))
+        self.assertEqual(len(hosts), 0)
+        record = BilledHost.objects.first()
+        self.assertFalse(record.reported)

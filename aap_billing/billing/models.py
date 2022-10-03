@@ -4,12 +4,16 @@ from django.db import models
 class BilledHost(models.Model):
     """
     Storage for billed hosts, retaining hostname and dates.
+    Hosts that are recorded but not billed (due to base quantity)
+    will have reported = False
     """
 
     class Meta:
         app_label = "billing"
         verbose_name_plural = "billed hosts"
         ordering = ("-pk",)
+
+    reported = models.BooleanField(default=False)
 
     billed_date = models.DateTimeField()
 
@@ -68,3 +72,19 @@ class DateSetting(models.Model):
     name = models.CharField(max_length=1024, primary_key=True)
 
     date = models.DateTimeField()
+
+
+class BaseQuantity(models.Model):
+    """
+    Store base quantity for plan
+    """
+
+    class Meta:
+        app_label = "billing"
+        constraints = [models.UniqueConstraint(fields=["offer_id", "plan_id"], name="Unique offer plan pairs")]
+
+    offer_id = models.CharField(max_length=1024)
+
+    plan_id = models.CharField(max_length=1024)
+
+    base_quantity = models.IntegerField()

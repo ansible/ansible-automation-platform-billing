@@ -7,7 +7,7 @@ from enum import Enum
 
 from aap_billing import BILLING_INTERFACE_AWS
 from aap_billing.main.models import JobHostSummary
-from aap_billing.billing.models import BilledHost, BillingRecord, DateSetting
+from aap_billing.billing.models import BilledHost, BillingRecord, DateSetting, BaseQuantity
 
 import logging
 
@@ -113,6 +113,11 @@ def rolloverIfNeeded():
         setDate(DateSettingEnum.PERIOD_END, period_end)
 
 
+def getProcessedHostCount(startDate):
+    processed_hosts = [x.host_name for x in BilledHost.objects.filter(rollover_date__isnull=True)]
+    return len(processed_hosts)
+
+
 def getUnbilledHosts(startDate):
     """
     Find hosts that were executed against that do not show up
@@ -132,12 +137,13 @@ def getUnbilledHosts(startDate):
     return new_hosts
 
 
-def markHostsBilled(unbilled_hosts):
+def markHostsBilled(unbilled_hosts, reported=True):
     """
-    Add reported hosts in the DB
+    Add reported hosts in the DB.
+    reported - True - Was sent to Marketplace, False - Not sent to Marketplace (below base quantity)
     """
     for host in unbilled_hosts:
-        b = BilledHost(host_name=host, billed_date=models.functions.Now())
+        b = BilledHost(host_name=host, billed_date=models.functions.Now(), reported=reported)
         b.save()
 
 
@@ -164,3 +170,26 @@ def recordLastRunDateTime():
     (main purpose is to ensure database availability/writeability)
     """
     setDate(DateSettingEnum.LAST_RUN_DATE, models.functions.Now())
+
+
+def getBaseQuantity(offer_id, plan_id):
+    """
+    Retrieve base quantity for this offer and plan from db
+    """
+    try:
+        res = BaseQuantity.objects.filter(plan_id=plan_id, offer_id=offer_id).get()
+    except ObjectDoesNotExist:
+        return None
+    return res.base_quantity
+
+
+def recordBaseQuantity(offer_id, plan_id, base_quantity):
+    """
+    Store the base quantity for plan/offer combo
+    """
+    res, created = BaseQuantity.objects.update_or_create(plan_id=plan_id, offer_id=offer_id, defaults={"base_quantity": base_quantity})
+    if not created:
+        msg = "Attempting to set base quantity for offer [%s] and plan [%s] when already set" % (offer_id, plan_id)
+        logger.error(msg)
+        raise RuntimeError(msg)
+    logging.info("Base quantity for offer [%s] and plan [%s] set to [%d]" % (res.offer_id, res.plan_id, res.base_quantity))
