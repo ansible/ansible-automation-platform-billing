@@ -62,8 +62,9 @@ def mocked_azure_apis(*args, **kwargs):
     elif "applications" in args[0]:
         # Return managed application packet
         data = {
-            "properties": {"billingDetails": {"resourceUsageId": "resource_usage_id_val"}, "publisherTenantId": "***REMOVED***"},
+            "properties": {"billingDetails": {"resourceUsageId": "resource_usage_id_val"}},
             "plan": {"name": "scottsplan", "product": "bhavensttest-preview"},
+            "kind": "MarketPlace",
         }
         return MockResponse(data, 200)
     elif "usageEvent" in args[0]:
@@ -357,3 +358,11 @@ class BillingTests(TransactionTestCase):
         self.assertEqual(len(hosts), 0)
         record = BilledHost.objects.first()
         self.assertFalse(record.reported)
+
+        with self.settings(BILLING_INTERFACE=BILLING_INTERFACE_AZURE):
+            # Ensure non-reported hosts will roll over
+            db.rolloverIfNeeded()
+
+            lastBilledHost = db.BilledHost.objects.first()
+            today = datetime.now()
+            self.assertEqual(lastBilledHost.rollover_date.date(), today.date())

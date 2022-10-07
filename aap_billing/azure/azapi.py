@@ -113,30 +113,13 @@ def _fetchManagedAppMetadata(managed_app_id, access_token):
         managed_app_api_version,
     )
     j = _getJsonPayload(url, auth_header, "resource usage ID and plan")
+    metadata["kind"] = j["kind"]
+    metadata["plan_id"] = j["plan"]["name"]
+    metadata["offer_id"] = _stripPreviewSuffix(j["plan"]["product"])
     if "billingDetails" in j["properties"]:
         metadata["resource_id"] = j["properties"]["billingDetails"]["resourceUsageId"]
-        metadata["plan_id"] = j["plan"]["name"]
-        metadata["offer_id"] = _stripPreviewSuffix(j["plan"]["product"])
-        metadata["publisher_tenant"] = j["properties"]["publisherTenantId"]
-        logger.debug("Fetched managed app metadata info: %s)" % metadata)
-        return metadata
-
-    elif j["kind"] != "MarketPlace":
-        logger.info(
-            """
-            Billing is not active/functional in single tenant deployments
-            """
-        )
-        sys.exit(0)
-    else:
-        logger.error(
-            """
-            No billing details present on managed app metadata.
-            Check offer/plan billing configuration.  If billing
-            is configured properly, report this error.
-            """
-        )
-        sys.exit(1)
+    logger.debug("Fetched managed app metadata info: %s)" % metadata)
+    return metadata
 
 
 def getManAppIdAndMetadata():
@@ -166,7 +149,22 @@ def pegBillingCounter(dimension, hosts):
     Send usage quantity to billing API
     """
     metadata = getManAppIdAndMetadata()
-
+    if metadata["kind"] != "MarketPlace":
+        logger.info(
+            """
+            Billing is not active/functional in single tenant deployments
+            """
+        )
+        sys.exit(0)
+    if "resource_id" not in metadata:
+        logger.error(
+            """
+            No billing details present on managed app metadata.
+            Check offer/plan billing configuration.  If billing
+            is configured properly, report this error.
+            """
+        )
+        sys.exit(1)
     billing_data = {}
     billing_data["resourceId"] = metadata["resource_id"]
     billing_data["dimension"] = dimension

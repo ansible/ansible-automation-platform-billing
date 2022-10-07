@@ -46,7 +46,7 @@ def main():
 
     # Check/set plan base quantity
     base_quantity = db.getBaseQuantity(offer_id, plan_id)
-    if not base_quantity:
+    if base_quantity is None:
         base_quantity = storage.fetchBaseQuantity(settings.PLAN_CONFIG_URL, offer_id, plan_id)
         if base_quantity:
             db.recordBaseQuantity(offer_id, plan_id, base_quantity)
