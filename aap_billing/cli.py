@@ -8,8 +8,11 @@ import argparse
 import django
 import logging
 import os
+import sys
 
 logger = logging.getLogger()
+
+version = "v0.2.4"
 
 
 def processArgs():
@@ -21,6 +24,21 @@ def processArgs():
     return parser.parse_args()
 
 
+def determineBaseQuantity(offer_id, plan_id):
+    if "db" not in sys.modules:
+        from aap_billing.db import db  # noqa: E402 - For unit test purposes
+
+    base_quantity = db.getBaseQuantity(offer_id, plan_id)
+    if base_quantity is None:
+        base_quantity = storage.fetchBaseQuantity(settings.PLAN_CONFIG_URL, offer_id, plan_id)
+        if base_quantity is None:
+            logging.fatal("Unable to find base quantity for offer [%s] and plan [%s]" % (offer_id, plan_id))
+            sys.exit(1)
+        else:
+            db.recordBaseQuantity(offer_id, plan_id, base_quantity)
+    return base_quantity
+
+
 # Main
 def main():
     args = processArgs()
@@ -28,6 +46,9 @@ def main():
         level=logging.DEBUG if args.debugmode else logging.INFO,
         format="%(levelname)s %(asctime)s\t%(message)s",
     )
+
+    # Print version
+    logging.info("Billing version: %s" % version)
 
     # Bootstrap django (orm only)
     os.environ["DJANGO_SETTINGS_MODULE"] = "aap_billing.settings"
@@ -39,31 +60,9 @@ def main():
 
     db.rolloverIfNeeded()
 
-    # Get offer/plan from metadata
-    metadata = azapi.getManAppIdAndMetadata()
-    offer_id = metadata["offer_id"]
-    plan_id = metadata["plan_id"]
-
-    # Check/set plan base quantity
-    base_quantity = db.getBaseQuantity(offer_id, plan_id)
-    if base_quantity is None:
-        base_quantity = storage.fetchBaseQuantity(settings.PLAN_CONFIG_URL, offer_id, plan_id)
-        if base_quantity:
-            db.recordBaseQuantity(offer_id, plan_id, base_quantity)
-        else:
-            logging.fatal(
-                "Unable to find base quantity for offer [%s] and plan [%s].  Please check plans.json file in RHAAP blob storage." % (offer_id, plan_id)
-            )
-    else:
-        logging.debug("Base quantity for offer [%s] and plan [%s] is [%d]" % (offer_id, plan_id, base_quantity))
-
     logger.info("Checking for newly encountered hosts.")
     (period_start, _) = db.calcBillingPeriod()
     unbilled = db.getUnbilledHosts(period_start)
-
-    # Get number of "seen" hosts to compare to base quantity threshold
-    processed_host_count = db.getProcessedHostCount(period_start)
-    logger.debug("Current processed host count is [%d]" % processed_host_count)
 
     if unbilled:
         if BILLING_INTERFACE_AWS == settings.BILLING_INTERFACE:
@@ -77,25 +76,28 @@ def main():
             logger.info("Marking hosts as billed/recorded.")
             db.markHostsBilled(unbilled)
         else:
+            # Azure
+            # Get offer/plan from metadata
+            metadata = azapi.getManAppIdAndMetadata()
+            offer_id = metadata["offer_id"]
+            plan_id = metadata["plan_id"]
+            base_quantity = determineBaseQuantity(offer_id, plan_id)
+            logging.debug("Base quantity for offer [%s] and plan [%s] is [%d]" % (offer_id, plan_id, base_quantity))
 
-            # If already processed hosts + new ones exceeds base quantity, bill those that exceed base_quantity
-            if (processed_host_count + len(unbilled)) > base_quantity:
-                number_to_report = processed_host_count + len(unbilled) - base_quantity
-                hosts_to_bill = unbilled[0:number_to_report]
-                hosts_to_mark = unbilled[number_to_report:]
+            (hosts_to_bill, hosts_to_mark) = db.getHostsToBill(period_start, base_quantity)
+            if len(hosts_to_bill) > 0:
                 logger.info("Executed hosts exceed base quantity, sending billing data to Metering Service")
                 billing_record = azapi.pegBillingCounter(settings.DIMENSION, hosts_to_bill)
 
                 # Record billing data
                 db.recordBillingInstance(billing_record)
-
-                # Mark hosts as billed if successful
-                logger.info("Marking hosts as billed/recorded.")
+                logger.info("Marking hosts as billed")
                 db.markHostsBilled(hosts_to_bill)
-                db.markHostsBilled(hosts_to_mark, False)
-            else:
+
+            if len(hosts_to_mark) > 0:
                 # Mark as seen, but not billed
-                db.markHostsBilled(unbilled, False)
+                logger.info("Marking hosts as recorded.")
+                db.markHostsSeen(hosts_to_mark)
     else:
         logger.info("No new hosts to bill.")
 

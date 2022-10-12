@@ -1,5 +1,6 @@
 from aap_billing import BILLING_INTERFACE_AWS
 from aap_billing import BILLING_INTERFACE_AZURE
+from aap_billing import cli
 from aap_billing.aws import awsapi
 from aap_billing.azure import azapi
 from aap_billing.billing.models import BilledHost, BillingRecord
@@ -12,6 +13,7 @@ from django.test import TransactionTestCase
 from django.utils import timezone
 from unittest import mock
 import botocore
+import json
 
 orig = botocore.client.BaseClient._make_api_call
 
@@ -45,19 +47,11 @@ def mocked_azure_apis(*args, **kwargs):
         return MockResponse(data, 200)
     elif "instance" in args[0]:
         # Return instance packet
-        data = {
-            "compute": {
-                "subscriptionId": "subscription123",
-                "resourceGroupName": "node_resource_group",
-            }
-        }
+        data = {"compute": {"subscriptionId": "subscription123", "resourceGroupName": "node_resource_group"}}
         return MockResponse(data, 200)
     elif "resourceGroups" in args[0]:
         # Return merged resource group packet
-        data = {
-            "managedBy": "applications",
-            "tags": {"aks-managed-cluster-rg": "resource_group"},
-        }
+        data = {"managedBy": "applications", "tags": {"aks-managed-cluster-rg": "resource_group"}}
         return MockResponse(data, 200)
     elif "applications" in args[0]:
         # Return managed application packet
@@ -81,6 +75,19 @@ def mocked_azure_apis(*args, **kwargs):
         }
         return MockResponse(data, 200)
     return MockResponse(None, 404)
+
+
+def mocked_storage_file(*args, **kwargs):
+    class MockResponse:
+        def __init__(self, json_data, status_code):
+            self.content = json.dumps(json_data)
+            self.status_code = status_code
+
+        def raise_for_status(*args):
+            pass
+
+    data = {"offers": [{"name": "Bryan Test", "id": "bhavensttest", "plans": [{"name": "Updated Dimension", "id": "plan7", "base_quantity": 0}]}]}
+    return MockResponse(data, 200)
 
 
 class BillingTests(TransactionTestCase):
@@ -336,25 +343,51 @@ class BillingTests(TransactionTestCase):
                 self.assertEqual(record.billed_date.month, today.month)
                 self.assertEqual(record.billed_date.year, today.year)
 
-    def testBaseQuantity(self):
-        res = db.getBaseQuantity("offer", "plan")
-        self.assertIsNone(res, msg="Base quantity should not exist")
+    @mock.patch("requests.get", side_effect=mocked_storage_file)
+    def testBaseQuantity(self, mock_get):
+        # Base quantity of 0 (from mock)
+        res = cli.determineBaseQuantity("bhavensttest", "plan7")
+        self.assertEqual(res, 0)
+
+        with self.assertRaises(SystemExit):
+            res = cli.determineBaseQuantity("offer", "plan")
+            self.assertIsNone(res, msg="Base quantity should not exist")
         db.recordBaseQuantity("offer", "plan", 10)
-        res = db.getBaseQuantity("offer", "plan")
+        res = cli.determineBaseQuantity("offer", "plan")
         self.assertEqual(res, 10, msg="Base quantity did not match expected: %d" % res)
-        res = db.getBaseQuantity("offer", "plan2")
-        self.assertIsNone(res, msg="Base quantity for plan2 should not exist.")
+        with self.assertRaises(SystemExit):
+            res = cli.determineBaseQuantity("offer", "plan2")
+            self.assertIsNone(res, msg="Base quantity for plan2 should not exist.")
         with self.assertRaises(RuntimeError):
-            db.recordBaseQuantity("offer", "plan", 99)
+            db.recordBaseQuantity("bhavensttest", "plan7", 99)
 
     def testBillingThreshold(self):
         # Storage of hosts lower than billing threshold check
-        processed_host_count = db.getProcessedHostCount(datetime(2021, 12, 31, tzinfo=timezone.utc))
+        period_start = datetime(2021, 12, 31, tzinfo=timezone.utc)
+        processed_host_count = db.getProcessedHostCount(period_start)
         self.assertEqual(processed_host_count, 3)
-        hosts = db.getUnbilledHosts(datetime(2021, 12, 31, tzinfo=timezone.utc))
+        hosts = db.getUnbilledHosts(period_start)
         self.assertEqual(len(hosts), 2)
-        db.markHostsBilled(hosts, False)
-        hosts = db.getUnbilledHosts(datetime(2021, 12, 31, tzinfo=timezone.utc))
+        # Bill all (base_quantity of 3)
+        (hosts_to_bill, hosts_to_mark) = db.getHostsToBill(period_start, 3)
+        self.assertEqual(len(hosts_to_bill), 2)
+        self.assertEqual(len(hosts_to_mark), 0)
+        # Bill none (base_quantity of 10)
+        (hosts_to_bill, hosts_to_mark) = db.getHostsToBill(period_start, 10)
+        self.assertEqual(len(hosts_to_bill), 0)
+        self.assertEqual(len(hosts_to_mark), 2)
+        # Bill part (base_quantity of 4)
+        (hosts_to_bill, hosts_to_mark) = db.getHostsToBill(period_start, 4)
+        self.assertEqual(len(hosts_to_bill), 1)
+        self.assertEqual(len(hosts_to_mark), 1)
+
+        # Base quantity of 0
+        (hosts_to_bill, hosts_to_mark) = db.getHostsToBill(period_start, 0)
+        self.assertEqual(len(hosts_to_bill), 2)
+        self.assertEqual(len(hosts_to_mark), 0)
+
+        db.markHostsSeen(hosts)
+        hosts = db.getUnbilledHosts(period_start)
         self.assertEqual(len(hosts), 0)
         record = BilledHost.objects.first()
         self.assertFalse(record.reported)

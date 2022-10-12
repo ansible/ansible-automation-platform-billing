@@ -137,13 +137,21 @@ def getUnbilledHosts(startDate):
     return new_hosts
 
 
-def markHostsBilled(unbilled_hosts, reported=True):
+def markHostsBilled(unbilled_hosts):
     """
-    Add reported hosts in the DB.
-    reported - True - Was sent to Marketplace, False - Not sent to Marketplace (below base quantity)
+    Add reported hosts in the DB, in billed state
     """
     for host in unbilled_hosts:
-        b = BilledHost(host_name=host, billed_date=models.functions.Now(), reported=reported)
+        b = BilledHost(host_name=host, billed_date=models.functions.Now(), reported=True)
+        b.save()
+
+
+def markHostsSeen(unbilled_hosts):
+    """
+    Add reported hosts to db, but in not billed state
+    """
+    for host in unbilled_hosts:
+        b = BilledHost(host_name=host, billed_date=models.functions.Now(), reported=False)
         b.save()
 
 
@@ -178,9 +186,10 @@ def getBaseQuantity(offer_id, plan_id):
     """
     try:
         res = BaseQuantity.objects.filter(plan_id=plan_id, offer_id=offer_id).get()
+        base_quantity = res.base_quantity
     except ObjectDoesNotExist:
         return None
-    return res.base_quantity
+    return base_quantity
 
 
 def recordBaseQuantity(offer_id, plan_id, base_quantity):
@@ -193,3 +202,22 @@ def recordBaseQuantity(offer_id, plan_id, base_quantity):
         logger.error(msg)
         raise RuntimeError(msg)
     logging.info("Base quantity for offer [%s] and plan [%s] set to [%d]" % (res.offer_id, res.plan_id, res.base_quantity))
+
+
+def getHostsToBill(period_start, base_quantity):
+    processed_host_count = getProcessedHostCount(period_start)
+    logger.debug("Current processed host count is [%d]" % processed_host_count)
+    unbilled = getUnbilledHosts(period_start)
+    logger.debug("New unprocessed host count is [%d]" % len(unbilled))
+
+    hosts_to_bill = []
+    hosts_to_mark = []
+    if (processed_host_count + len(unbilled)) > base_quantity:
+        # Some or all exceed base quantity, mark and bill appropriate sets
+        number_to_report = processed_host_count + len(unbilled) - base_quantity
+        hosts_to_bill = unbilled[0:number_to_report]
+        hosts_to_mark = unbilled[number_to_report:]
+    else:
+        # None exceed base quantity, mark all but don't bill
+        hosts_to_mark = unbilled
+    return (hosts_to_bill, hosts_to_mark)
