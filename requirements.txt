@@ -3,4 +3,3 @@ Django
 psycopg2
 requests
 python-dateutil
-django-constance[database]

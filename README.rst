@@ -14,14 +14,14 @@ Currently supporting Azure and AWS.
 Getting Started
 ---------------
 
-To get started developing against ansible-automation-platform-azure-billing first clone a local copy of the git repository::
+To get started developing against ansible-automation-platform-billing first clone a local copy of the git repository::
 
-    git clone https://github.com/ansible/ansible-automation-platform-azure-billing.git
+    git clone https://github.com/ansible/ansible-automation-platform-billing.git
 
 
 Change directories to the local repository::
 
-    cd ansible-automation-platform-azure-billing
+    cd ansible-automation-platform-billing
 
 
 Install tox if not already present::
@@ -31,8 +31,8 @@ Install tox if not already present::
 
 Create and activate a virtual environement for development::
 
-    tox -e venv
-    source .tox/venv/bin/activate
+    tox -e linters
+    source .env/bin/activate
 
 
 Linting
@@ -54,16 +54,6 @@ Run the unit tests via tox::
 SonarQube
 ---------
 
-Run static analysis and code coverage via tox.  Results posted to the
-internal [Red Hat SonarQube](***REMOVED***) instance::
-
-    tox -e sonarqube
-
-
-Build Image
------------
-
-To build and push a new image of the billing container::
-
-    podman build . -t quay.io/aap/ansible-automation-platform-cloud-billing
-    podman push quay.io/aap/ansible-automation-platform-cloud-billing
+Sonar analysis is performed by Github Actions on the code repository
+for this project.
+Results available at [sonarcloud.io](https://sonarcloud.io/project/overview?id=aoc-aap-test-billing)

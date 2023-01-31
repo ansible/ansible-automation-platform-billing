@@ -13,3 +13,4 @@ aap-billing-venv/
 .scannerwork/
 **/.coverage
 coverage.xml
+.env
