@@ -30,7 +30,7 @@ def determineBaseQuantity(offer_id, plan_id):
 
     base_quantity = db.getBaseQuantity(offer_id, plan_id)
     if base_quantity is None:
-        base_quantity = storage.fetchBaseQuantity(settings.PLAN_CONFIG_URL, offer_id, plan_id)
+        base_quantity = storage.fetchBaseQuantity(settings.PLAN_CONFIG_URL, settings.PLAN_STORAGE_TOKEN, offer_id, plan_id)
         if base_quantity is None:
             logging.fatal("Unable to find base quantity for offer [%s] and plan [%s]" % (offer_id, plan_id))
             sys.exit(1)

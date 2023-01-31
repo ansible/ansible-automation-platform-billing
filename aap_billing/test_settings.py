@@ -43,7 +43,8 @@ host counts.
 """
 DIMENSION = "managed_active_node"
 
-PLAN_CONFIG_URL = "https://rhaap.blob.core.windows.net/billing/plans.json"
+PLAN_CONFIG_URL = "https://urlurlurl"
+PLAN_STORAGE_TOKEN = "tokentokentoken"
 
 # Test databases
 DATABASES = {
