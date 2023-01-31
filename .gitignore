@@ -12,3 +12,4 @@ ansible_automation_platform_billing.egg.info/
 aap-billing-venv/
 .scannerwork/
 **/.coverage
+coverage.xml
