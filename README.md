@@ -4,11 +4,21 @@ Ansible Automation Platform Billing
 Captures automation usage for reporting to hyperscaler metering systems.
 
 This module uses the Django framework (ORM) and requires a PostgreSQL database
-of its own as well as at least read access to the Ansible Automation Platform controller database.
+of its own as well as read access to the Ansible Automation Platform controller database.
 
 Currently supporting Azure and AWS.
   - [MS Azure Marketplace Metered Billing API](https://docs.microsoft.com/en-us/azure/marketplace/marketplace-metering-service-apis)
   - [AWS Marketplace Metering Service](https://docs.aws.amazon.com/marketplacemetering/latest/APIReference/Welcome.html)
+
+
+Development Team
+----------------
+
+This component is primarily developed by the Ansible Automation Platform on Azure team in Red Hat.
+
+[Github Issues](https://github.com/ansible/ansible-automation-platform-billing/issues) can be used to file tickets for help, bugs, vulnerabilities or other security issues.
+
+Contributions and suggestions are welcome!  Please see below for getting started.
 
 
 Getting Started
@@ -31,7 +41,7 @@ Install tox if not already present::
 
 Create and activate a virtual environement for development::
 
-    tox -e linters
+    tox -e linters (or unittest or coverage)
     source .env/bin/activate
 
 
@@ -49,6 +59,14 @@ Testing
 Run the unit tests via tox::
 
     tox -e unittest
+
+
+Unit Test Coverage
+------------------
+
+Generate a coverage report via tox::
+
+    tox -e coverage
 
 
 SonarQube
