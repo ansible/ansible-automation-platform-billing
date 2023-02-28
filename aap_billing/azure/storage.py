@@ -1,5 +1,7 @@
 import json
+import logging
 import requests
+import sys
 
 
 def fetchBaseQuantity(url, token, offer_id, plan_id):
@@ -7,7 +9,12 @@ def fetchBaseQuantity(url, token, offer_id, plan_id):
     Get file from Azure storage at given URL and parse to get base quantity for offer/plan
     """
     url = url + "?" + token
+    # Temporarily disable URL logging to hide token
+    logging.disable(logging.DEBUG)
     res = requests.get(url)
+
+    # Reenable logging
+    logging.disable(logging.NOTSET)
     if res.status_code == 200:
         offers_plans = json.loads(res.content)
         for offer in offers_plans["offers"]:
@@ -16,5 +23,6 @@ def fetchBaseQuantity(url, token, offer_id, plan_id):
                     if plan["id"] == plan_id:
                         return plan["base_quantity"]
     else:
-        res.raise_for_status()
+        print(f"Failed to fetch billing config file!  Status code: {res.status_code}")
+        sys.exit(1)
     return None
