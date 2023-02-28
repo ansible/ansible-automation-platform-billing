@@ -10,12 +10,11 @@ def fetchBaseQuantity(url, token, offer_id, plan_id):
     """
     url = url + "?" + token
     # Temporarily disable URL logging to hide token
-    urlLogger = logging.getLogger("urllib3")
-    urlLogger.disabled = True
+    logging.disable(logging.DEBUG)
     res = requests.get(url)
 
     # Reenable logging
-    urlLogger.disabled = False
+    logging.disable(logging.NOTSET)
     if res.status_code == 200:
         offers_plans = json.loads(res.content)
         for offer in offers_plans["offers"]:
