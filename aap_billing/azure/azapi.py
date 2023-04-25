@@ -70,8 +70,8 @@ def _fetchWorkloadIdentityAccessToken():
     resp = requests.post(auth_url, data=req)
     resp.raise_for_status()
     if "access_token" not in resp.json():
-        logger.error("Access token not returned, exiting.")
-        sys.exit(1)
+        logger.error("Access token not returned.")
+        return None
     else:
         return resp.json()["access_token"]
 
