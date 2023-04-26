@@ -1,5 +1,6 @@
 from datetime import datetime
 import logging
+import os
 import requests
 import sys
 
@@ -31,7 +32,7 @@ def _getJsonPayload(url, headers, data_type="data"):
     return response.json()
 
 
-def _fetchAccessToken():
+def _fetchMSIAccessToken():
     """
     Fetch the system identity access token from the metadata store
     """
@@ -41,6 +42,38 @@ def _fetchAccessToken():
     token = j["access_token"]
     logger.debug("Fetched access token.")
     return token
+
+
+def _fetchWorkloadIdentityAccessToken():
+    """
+    Fetch the access token using the new workload identity method
+    """
+    req = {}
+    try:
+        tenant = os.environ["AZURE_TENANT_ID"]
+        req["client_id"] = os.environ["AZURE_CLIENT_ID"]
+        auth_host = os.environ["AZURE_AUTHORITY_HOST"]
+        token_file = os.environ["AZURE_FEDERATED_TOKEN_FILE"]
+
+        with open(token_file, "r") as tf:
+            req["client_assertion"] = tf.read().strip()
+    except KeyError or FileNotFoundError:
+        logger.error("Workload identity not configured on this pod")
+        return None
+
+    req["grant_type"] = "client_credentials"
+    req["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+    req["scope"] = "https://management.azure.com//.default"  # The double // is very important
+
+    auth_url = f"{auth_host}{tenant}/oauth2/v2.0/token"
+
+    resp = requests.post(auth_url, data=req)
+    resp.raise_for_status()
+    if "access_token" not in resp.json():
+        logger.error("Access token not returned.")
+        return None
+    else:
+        return resp.json()["access_token"]
 
 
 def _fetchSubscriptionAndNodeResourceGroup():
@@ -132,7 +165,10 @@ def getManAppIdAndMetadata():
     if metadata_loaded:
         return metadata
     else:
-        token = _fetchAccessToken()
+        token = _fetchWorkloadIdentityAccessToken()
+        if not token:
+            logger.info("Workload identity token request failed, trying pod identity.")
+            token = _fetchMSIAccessToken()
         (sub, nrg) = _fetchSubscriptionAndNodeResourceGroup()
         mrg = _fetchManagedResourceGroup(sub, nrg, token)
         managed_app_id = _fetchManagedAppId(sub, mrg, token)
