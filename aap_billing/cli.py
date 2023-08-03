@@ -39,6 +39,25 @@ def determineBaseQuantity(offer_id, plan_id):
     return base_quantity
 
 
+def exitIfNotMarketplaceDeployment(metadata):
+    if metadata["kind"] != "MarketPlace":
+        logger.info(
+            """
+            Billing is not active/functional in single tenant deployments
+            """
+        )
+        sys.exit(0)
+    if "resource_id" not in metadata:
+        logger.error(
+            """
+            No billing details present on managed app metadata.
+            Check offer/plan billing configuration.  If billing
+            is configured properly, report this error.
+            """
+        )
+        sys.exit(1)
+
+
 # Main
 def main():
     args = processArgs()
@@ -79,6 +98,9 @@ def main():
             # Azure
             # Get offer/plan from metadata
             metadata = azapi.getManAppIdAndMetadata()
+            # Ensure Marketplace deployment with billing data
+            exitIfNotMarketplaceDeployment(metadata)
+
             offer_id = metadata["offer_id"]
             plan_id = metadata["plan_id"]
             base_quantity = determineBaseQuantity(offer_id, plan_id)
