@@ -43,13 +43,21 @@ host counts.
 """
 DIMENSION = "managed_active_node"
 
+WELCOME_SERVICE_NAME = "welcome-page-api-svc"
+WELCOME_SERVICE_NS = "ansible-automation-platform-welcome"
+WELCOME_SERVICE_PORT = "8080"
+
 """
 Import /etc/billing/billingconf.py settings file if it exists.
-Database settings are expected to be defined there.
-Plan json file also expected:
+Required:
+DATABASES, (awx and default (billing) db definitions)
 PLAN_CONFIG_URL, points to config file containing offer and plan base
                  quantity details
 PLAN_STORAGE_TOKEN, used to fetch config file from PLAN_CONFIG_URL
+Optional:
+WELCOME_SERVICE_NAME,
+WELCOME_SERVICE_NS,
+WELCOME_SERVICE_PORT, These can be used to override defaults if needed
 """
 
 DATABASES = {}

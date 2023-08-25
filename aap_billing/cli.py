@@ -1,7 +1,8 @@
 #!/usr/bin/python3
-from aap_billing import BILLING_INTERFACE_AWS
+from aap_billing import BILLING_INTERFACE_AWS, BILLING_INTERFACE_AZURE
 from aap_billing.azure import azapi, storage
 from aap_billing.aws import awsapi
+from aap_billing.welcome import client
 from django.conf import settings
 
 import argparse
@@ -58,6 +59,12 @@ def exitIfNotMarketplaceDeployment(metadata):
         sys.exit(1)
 
 
+def update_welcome_page_usage(db, period_start, period_end, base_quantity):
+    logger.info("Updating welcome page usage data.")
+    data = {"periodstart": period_start, "periodend": period_end, "used": db.getProcessedHostCount(period_start), "included": base_quantity}
+    client.update_welcome_page(data)
+
+
 # Main
 def main():
     args = processArgs()
@@ -80,8 +87,23 @@ def main():
     db.rolloverIfNeeded()
 
     logger.info("Checking for newly encountered hosts.")
-    (period_start, _) = db.calcBillingPeriod()
+    (period_start, period_end) = db.calcBillingPeriod()
     unbilled = db.getUnbilledHosts(period_start)
+
+    if BILLING_INTERFACE_AZURE == settings.BILLING_INTERFACE:
+        # Pre load offer/plan/base quantity info, needed for welcome page
+        # Get offer/plan from metadata
+        metadata = azapi.getManAppIdAndMetadata()
+        # Ensure Marketplace deployment with billing data
+        exitIfNotMarketplaceDeployment(metadata)
+
+        offer_id = metadata["offer_id"]
+        plan_id = metadata["plan_id"]
+        base_quantity = determineBaseQuantity(offer_id, plan_id)
+        logging.debug("Base quantity for offer [%s] and plan [%s] is [%d]" % (offer_id, plan_id, base_quantity))
+
+        if hasattr(settings, "WELCOME_API_URL"):
+            update_welcome_page_usage(db, period_start, period_end, base_quantity)
 
     if unbilled:
         if BILLING_INTERFACE_AWS == settings.BILLING_INTERFACE:
@@ -96,16 +118,6 @@ def main():
             db.markHostsBilled(unbilled)
         else:
             # Azure
-            # Get offer/plan from metadata
-            metadata = azapi.getManAppIdAndMetadata()
-            # Ensure Marketplace deployment with billing data
-            exitIfNotMarketplaceDeployment(metadata)
-
-            offer_id = metadata["offer_id"]
-            plan_id = metadata["plan_id"]
-            base_quantity = determineBaseQuantity(offer_id, plan_id)
-            logging.debug("Base quantity for offer [%s] and plan [%s] is [%d]" % (offer_id, plan_id, base_quantity))
-
             (hosts_to_bill, hosts_to_mark) = db.getHostsToBill(period_start, base_quantity)
             if len(hosts_to_bill) > 0:
                 logger.info("Executed hosts exceed base quantity, sending billing data to Metering Service")
