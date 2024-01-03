@@ -6,11 +6,10 @@ from aap_billing.azure import azapi
 from aap_billing.billing.models import BilledHost, BillingRecord
 from aap_billing.main.models import JobHostSummary
 from aap_billing.db import db
-from datetime import datetime
+from datetime import datetime, timezone
 from django.conf import settings
 from django.db import connection
 from django.test import TransactionTestCase
-from django.utils import timezone
 from unittest import mock
 import botocore
 import json
@@ -116,7 +115,7 @@ class BillingTests(TransactionTestCase):
             today = datetime(2022, 2, 7, tzinfo=timezone.utc)
             db.recordLastRunDateTime()
             run_date = db.getDate(db.DateSettingEnum.LAST_RUN_DATE)
-            self.assertEqual(run_date.day, datetime.now().day)
+            self.assertEqual(run_date.day, datetime.now(timezone.utc).day)
             (period_start, _) = db.calcBillingPeriod(today)
             unbilled = db.getUnbilledHosts(period_start)  # 2 hosts from fixtures
             self.assertEqual(len(unbilled), 2)
@@ -397,5 +396,5 @@ class BillingTests(TransactionTestCase):
             db.rolloverIfNeeded()
 
             lastBilledHost = db.BilledHost.objects.first()
-            today = datetime.now()
+            today = datetime.now(timezone.utc)
             self.assertEqual(lastBilledHost.rollover_date.date(), today.date())

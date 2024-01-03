@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import os
 import requests
@@ -205,7 +205,7 @@ def pegBillingCounter(dimension, hosts):
     billing_data["resourceId"] = metadata["resource_id"]
     billing_data["dimension"] = dimension
     billing_data["quantity"] = len(hosts)
-    billing_data["effectiveStartTime"] = datetime.now().replace(microsecond=0).isoformat()
+    billing_data["effectiveStartTime"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     billing_data["planId"] = metadata["plan_id"]
     logger.debug("Billing payload: %s" % billing_data)
     auth_header = {"Authorization": "Bearer %s" % metadata["token"]}
