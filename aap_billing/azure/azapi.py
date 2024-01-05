@@ -231,7 +231,7 @@ def pegBillingCounter(dimension, hosts):
     billing_record["dimension"] = dimension
     billing_record["hosts"] = ",".join(hosts)
     billing_record["quantity"] = len(hosts)
-    
+
     billing_record["azure_status"] = responseJson["status"]
     billing_record["azure_messageTime"] = responseJson["messageTime"]
     billing_record["azure_resourceId"] = responseJson["resourceId"]
