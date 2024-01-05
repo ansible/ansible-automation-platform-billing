@@ -63,13 +63,13 @@ def mocked_azure_apis(*args, **kwargs):
     elif "usageEvent" in args[0]:
         # Return billing response
         data = {
-            "usageEventId": "usage_event_id_val",
+            "usageEventId": "12345678-90ab-cdef-0123-4567890abcde",
             "status": "Accepted",
-            "messageTime": datetime.now(timezone.utc).isoformat(),
-            "resourceId": "resource_usage_id_val",
-            "quantity": 5,
+            "messageTime": "2020-01-12T13:19:35.3458658Z",
+            "resourceId": "12345678-90ab-cdef-0123-4567890abcde",
+            "quantity": 5.0,
             "dimension": settings.DIMENSION,
-            "effectiveStartTime": datetime.now(timezone.utc).isoformat(),
+            "effectiveStartTime": "2018-12-01T08:30:14",
             "planId": "plan0",
         }
         return MockResponse(data, 200)
@@ -321,6 +321,10 @@ class BillingTests(TransactionTestCase):
             self.assertEqual(record.billed_date.day, today.day)
             self.assertEqual(record.billed_date.month, today.month)
             self.assertEqual(record.billed_date.year, today.year)
+            self.assertEqual(record.azure_status, "Accepted")
+            self.assertEqual(record.azure_message_time.day, 12)
+            self.assertEqual(record.azure_message_time.hour, 13)
+            self.assertEqual(record.azure_effective_start_time.hour, 8)
 
     def testBillingApiAws(self):
         with self.settings(

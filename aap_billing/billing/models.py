@@ -58,6 +58,34 @@ class BillingRecord(models.Model):
         max_length=1024,
     )
 
+    # The following are null allowed to allow for migration and/or
+    # Azure not returning values if that would ever happen.
+    azure_status = models.CharField(
+        max_length=1024,
+        null=True,
+    )
+
+    azure_message_time = models.DateTimeField(null=True)
+
+    azure_resource_id = models.CharField(
+        max_length=1024,
+        null=True,
+    )
+
+    azure_quantity = models.IntegerField(null=True)
+
+    azure_dimension = models.CharField(
+        max_length=1024,
+        null=True,
+    )
+
+    azure_effective_start_time = models.DateTimeField(null=True)
+
+    azure_plan_id = models.CharField(
+        max_length=1024,
+        null=True,
+    )
+
 
 class DateSetting(models.Model):
     """
