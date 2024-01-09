@@ -12,7 +12,7 @@ import sys
 
 logger = logging.getLogger()
 
-version = "v0.2.8"
+version = "v0.2.9"
 
 
 def processArgs():
