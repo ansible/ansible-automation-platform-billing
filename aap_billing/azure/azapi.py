@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import os
 import requests
@@ -205,7 +205,7 @@ def pegBillingCounter(dimension, hosts):
     billing_data["resourceId"] = metadata["resource_id"]
     billing_data["dimension"] = dimension
     billing_data["quantity"] = len(hosts)
-    billing_data["effectiveStartTime"] = datetime.now().replace(microsecond=0).isoformat()
+    billing_data["effectiveStartTime"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     billing_data["planId"] = metadata["plan_id"]
     logger.debug("Billing payload: %s" % billing_data)
     auth_header = {"Authorization": "Bearer %s" % metadata["token"]}
@@ -219,7 +219,8 @@ def pegBillingCounter(dimension, hosts):
         sys.exit(1)
 
     logger.debug("Billing response: %s" % response.json())
-    event_id = response.json()["usageEventId"]
+    responseJson = response.json()
+    event_id = responseJson["usageEventId"]
     logger.info("Recorded metering event ID: %s" % event_id)
 
     billing_record = {}
@@ -230,5 +231,13 @@ def pegBillingCounter(dimension, hosts):
     billing_record["dimension"] = dimension
     billing_record["hosts"] = ",".join(hosts)
     billing_record["quantity"] = len(hosts)
+
+    billing_record["azure_status"] = responseJson["status"]
+    billing_record["azure_messageTime"] = responseJson["messageTime"]
+    billing_record["azure_resourceId"] = responseJson["resourceId"]
+    billing_record["azure_quantity"] = responseJson["quantity"]
+    billing_record["azure_dimention"] = responseJson["dimension"]
+    billing_record["azure_effectiveStartTime"] = responseJson["effectiveStartTime"]
+    billing_record["azure_planId"] = responseJson["planId"]
 
     return billing_record
