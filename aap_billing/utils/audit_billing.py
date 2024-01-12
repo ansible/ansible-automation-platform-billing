@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
-from datetime import datetime
+from datetime import datetime, timezone
 from dateutil.relativedelta import relativedelta
-from django.utils import timezone
 
 import argparse
 import csv
