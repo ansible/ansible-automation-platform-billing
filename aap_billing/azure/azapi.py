@@ -57,7 +57,7 @@ def _fetchWorkloadIdentityAccessToken():
 
         with open(token_file, "r") as tf:
             req["client_assertion"] = tf.read().strip()
-    except KeyError or FileNotFoundError:
+    except (KeyError, FileNotFoundError):
         logger.error("Workload identity not configured on this pod")
         return None
 
