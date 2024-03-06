@@ -169,7 +169,7 @@ def deduplicateHosts(host_list):
     # Then replace host name by value of ansible_host
     deduped_hosts = {}
     for executed_host in host_list.keys():
-        vars = {}
+        variables = {}
 
         # If this host doesn't have a record (not sure this would ever happen), skip it
         if executed_host not in defined_hosts_vars:
@@ -179,17 +179,16 @@ def deduplicateHosts(host_list):
         # Variables can be stored as yaml or json
         # Yaml parser SHOULD handle json, but try json parser too just in case
         try:
-            vars = yaml.safe_load(defined_hosts_vars[executed_host])
+            variables = yaml.safe_load(defined_hosts_vars[executed_host])
         except yaml.YAMLError:
             logger.error("Unable to parse vars for %s as yaml, trying json", executed_host)
             try:
-                vars = json.loads(defined_hosts_vars[executed_host])
+                variables = json.loads(defined_hosts_vars[executed_host])
             except json.JSONDecodeError:
                 logger.error("Unable to parse vars for %s as json, giving up", executed_host)
-        if vars is not None and "ansible_host" in vars:
+        if variables is not None and "ansible_host" in variables:
             # Add to filtered list with ansible_host value instead of hostname
-            deduped_hosts[vars["ansible_host"]] = host_list[executed_host]
-            continue
+            deduped_hosts[variables["ansible_host"]] = host_list[executed_host]
         else:
             deduped_hosts[executed_host] = host_list[executed_host]
     return deduped_hosts
