@@ -4,7 +4,7 @@ from aap_billing import cli
 from aap_billing.aws import awsapi
 from aap_billing.azure import azapi
 from aap_billing.billing.models import BilledHost, BillingRecord
-from aap_billing.main.models import JobHostSummary
+from aap_billing.main.models import JobHostSummary, Host
 from aap_billing.db import db
 from datetime import datetime, timezone
 from django.conf import settings
@@ -103,6 +103,7 @@ class BillingTests(TransactionTestCase):
         # Create unmanaged job host summary table
         with connection.schema_editor() as schema_editor:
             schema_editor.create_model(JobHostSummary)
+            schema_editor.create_model(Host)
 
     @mock.patch("requests.get", side_effect=mocked_azure_apis)
     @mock.patch("requests.post", side_effect=mocked_azure_apis)
@@ -117,8 +118,8 @@ class BillingTests(TransactionTestCase):
             run_date = db.getDate(db.DateSettingEnum.LAST_RUN_DATE)
             self.assertEqual(run_date.day, datetime.now(timezone.utc).day)
             (period_start, _) = db.calcBillingPeriod(today)
-            unbilled = db.getUnbilledHosts(period_start)  # 2 hosts from fixtures
-            self.assertEqual(len(unbilled), 2)
+            unbilled = db.getUnbilledHosts(period_start)  # 4 hosts from fixtures
+            self.assertEqual(len(unbilled), 4)
             billing_record = azapi.pegBillingCounter(settings.DIMENSION, unbilled)
             db.recordBillingInstance(billing_record)
             records = BillingRecord.objects.all()  # One new record
@@ -140,8 +141,10 @@ class BillingTests(TransactionTestCase):
             )
             # Do rollover
             db.rolloverIfNeeded()
-            unbilled = db.getUnbilledHosts(period_start)  # Billed hosts cleared, all 3 are unbilled
-            self.assertEqual(len(unbilled), 3)
+            # Rollover enabled new counting method
+            unbilled = db.getUnbilledHosts(period_start)  # Billed hosts cleared, all 5 are unbilled, but filtered to 4 by new counting
+            print(unbilled)
+            self.assertEqual(len(unbilled), 4)
 
     def testMainAws(self):
         with self.settings(
@@ -155,8 +158,8 @@ class BillingTests(TransactionTestCase):
             )
             today = datetime(2022, 2, 7, tzinfo=timezone.utc)
             (period_start, _) = db.calcBillingPeriod(today)
-            unbilled = db.getUnbilledHosts(period_start)  # 2 hosts from fixtures
-            self.assertEqual(len(unbilled), 2)
+            unbilled = db.getUnbilledHosts(period_start)  # 4 hosts from fixtures
+            self.assertEqual(len(unbilled), 4)
             with mock.patch(
                 "botocore.client.BaseClient._make_api_call",
                 new=mock_make_api_call,
@@ -182,13 +185,13 @@ class BillingTests(TransactionTestCase):
                 )
                 # Do rollover
                 db.rolloverIfNeeded()
-                unbilled = db.getUnbilledHosts(period_start)  # Billed hosts cleared, all 3 are unbilled
-                self.assertEqual(len(unbilled), 3)
+                unbilled = db.getUnbilledHosts(period_start)  # Billed hosts cleared, all 5 are unbilled, but filtered to 4 by new counting
+                self.assertEqual(len(unbilled), 4)
 
     def testHostsToReport(self):
         hosts = db.getUnbilledHosts(datetime(2021, 12, 31, tzinfo=timezone.utc))
-        expectedUnbilled = ["host2", "host3"]
-        self.assertEqual(len(hosts), 2)
+        expectedUnbilled = ["host2", "host3", "host_alias_1", "host_alias_2"]
+        self.assertEqual(len(hosts), 4)
         for host in hosts:
             self.assertIn(host, expectedUnbilled)
 
@@ -317,7 +320,7 @@ class BillingTests(TransactionTestCase):
             billing_data = azapi.pegBillingCounter(settings.DIMENSION, hosts)
             db.recordBillingInstance(billing_data)
             record = BillingRecord.objects.first()
-            self.assertEqual(record.quantity, 2)
+            self.assertEqual(record.quantity, 4)
             self.assertEqual(record.billed_date.day, today.day)
             self.assertEqual(record.billed_date.month, today.month)
             self.assertEqual(record.billed_date.year, today.year)
@@ -341,7 +344,7 @@ class BillingTests(TransactionTestCase):
                 billing_data = awsapi.pegBillingCounter(settings.DIMENSION, hosts)
                 db.recordBillingInstance(billing_data)
                 record = BillingRecord.objects.first()
-                self.assertEqual(record.quantity, 2)
+                self.assertEqual(record.quantity, 4)
                 self.assertEqual(record.billed_date.day, today.day)
                 self.assertEqual(record.billed_date.month, today.month)
                 self.assertEqual(record.billed_date.year, today.year)
@@ -370,23 +373,23 @@ class BillingTests(TransactionTestCase):
         processed_host_count = db.getProcessedHostCount(period_start)
         self.assertEqual(processed_host_count, 3)
         hosts = db.getUnbilledHosts(period_start)
-        self.assertEqual(len(hosts), 2)
+        self.assertEqual(len(hosts), 4)
         # Bill all (base_quantity of 3)
         (hosts_to_bill, hosts_to_mark) = db.getHostsToBill(period_start, 3)
-        self.assertEqual(len(hosts_to_bill), 2)
+        self.assertEqual(len(hosts_to_bill), 4)
         self.assertEqual(len(hosts_to_mark), 0)
         # Bill none (base_quantity of 10)
         (hosts_to_bill, hosts_to_mark) = db.getHostsToBill(period_start, 10)
         self.assertEqual(len(hosts_to_bill), 0)
-        self.assertEqual(len(hosts_to_mark), 2)
+        self.assertEqual(len(hosts_to_mark), 4)
         # Bill part (base_quantity of 4)
         (hosts_to_bill, hosts_to_mark) = db.getHostsToBill(period_start, 4)
-        self.assertEqual(len(hosts_to_bill), 1)
+        self.assertEqual(len(hosts_to_bill), 3)
         self.assertEqual(len(hosts_to_mark), 1)
 
         # Base quantity of 0
         (hosts_to_bill, hosts_to_mark) = db.getHostsToBill(period_start, 0)
-        self.assertEqual(len(hosts_to_bill), 2)
+        self.assertEqual(len(hosts_to_bill), 4)
         self.assertEqual(len(hosts_to_mark), 0)
 
         db.markHostsSeen(hosts)
@@ -402,3 +405,21 @@ class BillingTests(TransactionTestCase):
             lastBilledHost = db.BilledHost.objects.first()
             today = datetime.now(timezone.utc)
             self.assertEqual(lastBilledHost.rollover_date.date(), today.date())
+
+    def testNewCounting(self):
+        with self.settings(BILLING_INTERFACE=BILLING_INTERFACE_AZURE):
+            # Old counting
+            period_start = datetime(2021, 12, 31, tzinfo=timezone.utc)
+            hosts = db.getUnbilledHosts(period_start)
+            self.assertEqual(len(hosts), 4)
+            self.assertNotIn("real_host", hosts)
+            self.assertIn("host_alias_1", hosts)
+
+            db.rolloverIfNeeded()
+
+            # New counting
+            period_start = datetime(2021, 12, 31, tzinfo=timezone.utc)
+            hosts = db.getUnbilledHosts(period_start)
+            self.assertEqual(len(hosts), 4)
+            self.assertIn("real_host", hosts)
+            self.assertNotIn("host_alias_1", hosts)

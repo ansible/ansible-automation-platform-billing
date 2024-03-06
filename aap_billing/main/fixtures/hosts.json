@@ -67,7 +67,7 @@
       "modified": "2022-03-04T15:38:22Z",
       "job_id": 1,
       "host_id": 1,
-      "host_name": "host1",
+      "host_name": "HoSt1",
       "changed": 0,
       "dark": 0,
       "failures": 0,
@@ -77,6 +77,96 @@
       "rescued": 0,
       "skipped": 0,
       "failed": false
+    }
+  },
+  {
+    "model": "main.jobhostsummary",
+    "pk": 5,
+    "fields": {
+      "created": "2022-03-03T00:00:00Z",
+      "modified": "2022-03-03T00:00:00Z",
+      "job_id": 1,
+      "host_id": 99,
+      "host_name": "HOST_ALIAS_1",
+      "changed": 0,
+      "dark": 0,
+      "failures": 0,
+      "ignored": 0,
+      "ok": 0,
+      "processed": 0,
+      "rescued": 0,
+      "skipped": 0,
+      "failed": false
+    }
+  },
+  {
+    "model": "main.jobhostsummary",
+    "pk": 6,
+    "fields": {
+      "created": "2022-03-03T00:00:00Z",
+      "modified": "2022-03-03T00:00:00Z",
+      "job_id": 1,
+      "host_id": 100,
+      "host_name": "HOST_ALIAS_2",
+      "changed": 0,
+      "dark": 0,
+      "failures": 0,
+      "ignored": 0,
+      "ok": 0,
+      "processed": 0,
+      "rescued": 0,
+      "skipped": 0,
+      "failed": false
+    }
+  },
+  {
+    "model": "main.host",
+    "pk": 1,
+    "fields": {
+      "created": "2022-03-03T00:00:00Z",
+      "modified": "2022-03-03T00:00:00Z",
+      "name": "host1",
+      "variables": ""
+    }
+  },
+  {
+    "model": "main.host",
+    "pk": 2,
+    "fields": {
+      "created": "2022-03-03T00:00:00Z",
+      "modified": "2022-03-03T00:00:00Z",
+      "name": "host2",
+      "variables": ""
+    }
+  },
+  {
+    "model": "main.host",
+    "pk": 3,
+    "fields": {
+      "created": "2022-03-03T00:00:00Z",
+      "modified": "2022-03-03T00:00:00Z",
+      "name": "host3",
+      "variables": ""
+    }
+  },
+  {
+    "model": "main.host",
+    "pk": 99,
+    "fields": {
+      "created": "2022-03-03T00:00:00Z",
+      "modified": "2022-03-03T00:00:00Z",
+      "name": "HOST_ALIAS_1",
+      "variables": "---\nansible_host: \"real_host\"\nansible_user: \"bhavenst\""
+    }
+  },
+  {
+    "model": "main.host",
+    "pk": 100,
+    "fields": {
+      "created": "2022-03-03T00:00:00Z",
+      "modified": "2022-03-03T00:00:00Z",
+      "name": "HOST_ALIAS_2",
+      "variables": "{\"ansible_host\":\"real_host\",\"ansible_user\":\"bhavenst\"}"
     }
   }
 ]

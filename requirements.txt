@@ -3,3 +3,4 @@ Django
 psycopg2
 requests
 python-dateutil
+pyyaml
