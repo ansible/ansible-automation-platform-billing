@@ -43,3 +43,25 @@ class JobHostSummary(models.Model):
 
     def save(self, *args, **kwargs):
         logger.error("Job Host Summary table is read-only")
+
+
+class Host(models.Model):
+    """
+    Read-only access to main_host table (only needed columns)
+    """
+
+    class Meta:
+        app_label = "main"
+        verbose_name_plural = "hosts"
+        ordering = ("name",)
+        managed = False
+
+    created = models.DateTimeField()
+
+    modified = models.DateTimeField()
+
+    name = models.CharField(
+        max_length=512,
+    )
+
+    variables = models.TextField(blank=True)

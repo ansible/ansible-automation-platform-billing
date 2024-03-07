@@ -27,7 +27,7 @@ jobs:
 
       # See https://sonarsource.atlassian.net/browse/SONARPY-1203
       - name: Fix paths in coverage file
-        run: sed -i 's/\/home\/runner\/work\/ansible-automation-platform-azure-billing\/ansible-automation-platform-azure-billing\//\/github\/workspace\//g' coverage.xml
+        run: sed -i 's/\/home\/runner\/work\/ansible-automation-platform-billing\/ansible-automation-platform-billing\//\/github\/workspace\//g' coverage.xml
 
       - name: Sonar scan
         uses: SonarSource/sonarcloud-github-action@master
