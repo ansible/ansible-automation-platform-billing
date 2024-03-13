@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 from aap_billing import BILLING_INTERFACE_AWS
-from aap_billing.azure import azapi, storage
+from aap_billing.azure import azapi
 from aap_billing.aws import awsapi
+from aap_billing.utils import plan_file_loader
 from django.conf import settings
 
 import argparse
@@ -30,7 +31,7 @@ def determineBaseQuantity(offer_id, plan_id):
 
     base_quantity = db.getBaseQuantity(offer_id, plan_id)
     if base_quantity is None:
-        base_quantity = storage.fetchBaseQuantity(settings.PLAN_CONFIG_URL, settings.PLAN_STORAGE_TOKEN, offer_id, plan_id)
+        base_quantity = plan_file_loader.fetchBaseQuantity(offer_id, plan_id)
         if base_quantity is None:
             logging.fatal("Unable to find base quantity for offer [%s] and plan [%s]" % (offer_id, plan_id))
             sys.exit(1)
