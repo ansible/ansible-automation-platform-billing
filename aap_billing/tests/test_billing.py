@@ -340,7 +340,6 @@ class BillingTests(TransactionTestCase):
                 self.assertEqual(record.billed_date.month, today.month)
                 self.assertEqual(record.billed_date.year, today.year)
 
-    # @mock.patch("requests.get", side_effect=mocked_storage_file)
     @mock.patch("builtins.open", side_effect=mocked_storage_file)
     def testBaseQuantity(self, mock_get):
         # Base quantity of 0 (from mock)
