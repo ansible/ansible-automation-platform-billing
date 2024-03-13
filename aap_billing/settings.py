@@ -47,10 +47,6 @@ DIMENSION = "managed_active_node"
 """
 Import /etc/billing/billingconf.py settings file if it exists.
 Database settings are expected to be defined there.
-Plan json file also expected:
-PLAN_CONFIG_URL, points to config file containing offer and plan base
-                 quantity details
-PLAN_STORAGE_TOKEN, used to fetch config file from PLAN_CONFIG_URL
 """
 
 DATABASES = {}
