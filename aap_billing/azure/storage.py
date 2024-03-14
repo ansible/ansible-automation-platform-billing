@@ -4,6 +4,7 @@ import requests
 import sys
 
 
+# No longer used - base quantity now loaded from /etc/billingplans/plans.json
 def fetchBaseQuantity(url, token, offer_id, plan_id):
     """
     Get file from Azure storage at given URL and parse to get base quantity for offer/plan

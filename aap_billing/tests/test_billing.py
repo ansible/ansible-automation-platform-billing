@@ -10,9 +10,9 @@ from datetime import datetime, timezone
 from django.conf import settings
 from django.db import connection
 from django.test import TransactionTestCase
+from io import StringIO
 from unittest import mock
 import botocore
-import json
 
 orig = botocore.client.BaseClient._make_api_call
 
@@ -77,16 +77,8 @@ def mocked_azure_apis(*args, **kwargs):
 
 
 def mocked_storage_file(*args, **kwargs):
-    class MockResponse:
-        def __init__(self, json_data, status_code):
-            self.content = json.dumps(json_data)
-            self.status_code = status_code
-
-        def raise_for_status(*args):
-            pass
-
-    data = {"offers": [{"name": "Bryan Test", "id": "bhavensttest", "plans": [{"name": "Updated Dimension", "id": "plan7", "base_quantity": 0}]}]}
-    return MockResponse(data, 200)
+    data = '{"offers": [{"name": "Bryan Test", "id": "bhavensttest", "plans": [{"name": "Updated Dimension", "id": "plan7", "base_quantity": 0}]}]}'
+    return StringIO(data)
 
 
 class BillingTests(TransactionTestCase):
@@ -143,7 +135,6 @@ class BillingTests(TransactionTestCase):
             db.rolloverIfNeeded()
             # Rollover enabled new counting method
             unbilled = db.getUnbilledHosts(period_start)  # Billed hosts cleared, all 5 are unbilled, but filtered to 4 by new counting
-            print(unbilled)
             self.assertEqual(len(unbilled), 4)
 
     def testMainAws(self):
@@ -349,7 +340,7 @@ class BillingTests(TransactionTestCase):
                 self.assertEqual(record.billed_date.month, today.month)
                 self.assertEqual(record.billed_date.year, today.year)
 
-    @mock.patch("requests.get", side_effect=mocked_storage_file)
+    @mock.patch("builtins.open", side_effect=mocked_storage_file)
     def testBaseQuantity(self, mock_get):
         # Base quantity of 0 (from mock)
         res = cli.determineBaseQuantity("bhavensttest", "plan7")
