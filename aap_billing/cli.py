@@ -13,7 +13,7 @@ import sys
 
 logger = logging.getLogger()
 
-version = "v0.2.10"
+version = "v0.2.12"
 
 
 def processArgs():
@@ -41,7 +41,7 @@ def determineBaseQuantity(offer_id, plan_id):
 
 
 def exitIfNotMarketplaceDeployment(metadata):
-    if metadata["kind"] != "MarketPlace":
+    if metadata["kind"].casefold() != "marketplace":
         logger.info(
             """
             Billing is not active/functional in single tenant deployments
