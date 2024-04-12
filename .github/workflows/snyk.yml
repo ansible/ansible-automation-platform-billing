@@ -1,0 +1,27 @@
+name: SNYK Analysis
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      # Checks-out under $GITHUB_WORKSPACE
+      - uses: actions/checkout@v4
+
+      # synk can do this, but it wants requirements.txt in the repo root
+      - name: Install requirements
+        run: pip install -r requirements.txt
+
+      - name: Snyk scan
+        uses: snyk/actions/python-3.10@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          DEBUG: "*snyk*"
+        with:
+          args: --all-projects
+
