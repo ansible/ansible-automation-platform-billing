@@ -241,12 +241,12 @@ def recordBillingInstance(billing_data):
             plan=billing_data["plan"],
             usage_event_id=billing_data["usage_event_id"],
             azure_status=billing_data["azure_status"],
-            azure_message_time=billing_data["azure_messageTime"],
-            azure_resource_id=billing_data["azure_resourceId"],
+            azure_message_time=billing_data["azure_message_time"],
+            azure_resource_id=billing_data["azure_resource_id"],
             azure_quantity=billing_data["azure_quantity"],
             azure_dimension=billing_data["azure_dimention"],
-            azure_effective_start_time=billing_data["azure_effectiveStartTime"],
-            azure_plan_id=billing_data["azure_planId"],
+            azure_effective_start_time=billing_data["azure_effective_start_time"],
+            azure_plan_id=billing_data["azure_plan_id"],
         )
 
     b.save()

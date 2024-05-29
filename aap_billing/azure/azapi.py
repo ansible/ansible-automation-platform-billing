@@ -155,7 +155,6 @@ def getManAppIdAndMetadata():
         managed_app_id = _fetchManagedAppId(sub, mrg, token)
         metadata["token"] = token
         metadata["managed_app_id"] = managed_app_id
-        metadata["mrg"] = mrg
         metadata_loaded = True
     return metadata
 
@@ -166,7 +165,7 @@ def pegBillingCounter(plan_id, dimension, hosts):
     """
     metadata = getManAppIdAndMetadata()
     billing_data = {}
-    billing_data["resourceId"] = metadata["managed_app_id"]  # TODO This does not work, figure out what data goes here
+    billing_data["resourceUri"] = metadata["managed_app_id"]
     billing_data["dimension"] = dimension
     billing_data["quantity"] = len(hosts)
     billing_data["effectiveStartTime"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
@@ -178,12 +177,6 @@ def pegBillingCounter(plan_id, dimension, hosts):
         response = requests.post(url, headers=auth_header, json=billing_data)
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
-        response_json = response.json()
-        for detail in response_json["details"]:
-            if "message" in detail and "cannot be found" in detail["message"]:
-                logger.info(response.text)
-                logger.info("This is probably not a marketplace application, exiting.")
-                sys.exit(0)
         logger.error("Billing payload not accepted: %s", e)
         logger.error(response.text)
         sys.exit(1)
@@ -195,7 +188,7 @@ def pegBillingCounter(plan_id, dimension, hosts):
 
     billing_record = {}
     billing_record["managed_app_id"] = metadata["managed_app_id"]
-    billing_record["resource_id"] = metadata["mrg"]
+    billing_record["resource_uri"] = metadata["managed_app_id"]
     billing_record["plan"] = plan_id
     billing_record["usage_event_id"] = event_id
     billing_record["dimension"] = dimension
@@ -203,11 +196,12 @@ def pegBillingCounter(plan_id, dimension, hosts):
     billing_record["quantity"] = len(hosts)
 
     billing_record["azure_status"] = responseJson["status"]
-    billing_record["azure_messageTime"] = responseJson["messageTime"]
-    billing_record["azure_resourceId"] = responseJson["resourceId"]
+    billing_record["azure_message_time"] = responseJson["messageTime"]
+    billing_record["azure_resource_id"] = responseJson["resourceId"] if "resourceId" in responseJson else None
+    billing_record["azure_resource_uri"] = responseJson["resourceUri"] if "resourceUri" in responseJson else None
     billing_record["azure_quantity"] = responseJson["quantity"]
     billing_record["azure_dimention"] = responseJson["dimension"]
-    billing_record["azure_effectiveStartTime"] = responseJson["effectiveStartTime"]
-    billing_record["azure_planId"] = responseJson["planId"]
+    billing_record["azure_effective_start_time"] = responseJson["effectiveStartTime"]
+    billing_record["azure_plan_id"] = responseJson["planId"]
 
     return billing_record

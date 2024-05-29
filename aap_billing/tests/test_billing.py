@@ -58,6 +58,7 @@ def mocked_azure_apis(*args, **kwargs):
             "status": "Accepted",
             "messageTime": "2020-01-12T13:19:35.3458658Z",
             "resourceId": "12345678-90ab-cdef-0123-4567890abcde",
+            "resourceUri": "/subscriptions/abcd/resourceGroups/efgh/providers/Microsoft.Solutions/applications/ijkl",
             "quantity": 5.0,
             "dimension": settings.DIMENSION,
             "effectiveStartTime": "2018-12-01T08:30:14",
