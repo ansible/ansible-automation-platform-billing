@@ -1,8 +1,9 @@
-from datetime import datetime, timezone
 import logging
 import os
-import requests
 import sys
+from datetime import datetime, timezone
+
+import requests
 
 metadata_ip = "169.254.169.254"
 metadata_header = {"Metadata": "true"}
@@ -135,25 +136,6 @@ def _stripPreviewSuffix(text):
     return text
 
 
-def _fetchManagedAppMetadata(managed_app_id, access_token):
-    """
-    Fetch resource usage ID and plan for app
-    """
-    metadata = {}
-    auth_header = {"Authorization": "Bearer %s" % access_token}
-    url = "https://management.azure.com%s?api-version=%s" % (
-        managed_app_id,
-        managed_app_api_version,
-    )
-    j = _getJsonPayload(url, auth_header, "resource usage ID and plan")
-    metadata["kind"] = j["kind"]  # Always present
-    metadata["plan_id"] = j["plan"]["name"] if "plan" in j else None
-    metadata["offer_id"] = _stripPreviewSuffix(j["plan"]["product"]) if "plan" in j else None
-    metadata["resource_id"] = j["properties"]["billingDetails"]["resourceUsageId"] if "billingDetails" in j["properties"] else None
-    logger.debug("Fetched managed app metadata info: %s)" % metadata)
-    return metadata
-
-
 def getManAppIdAndMetadata():
     """
     Grab various info from metadata
@@ -171,25 +153,24 @@ def getManAppIdAndMetadata():
         (sub, nrg) = _fetchSubscriptionAndNodeResourceGroup()
         mrg = _fetchManagedResourceGroup(sub, nrg, token)
         managed_app_id = _fetchManagedAppId(sub, mrg, token)
-        app_metadata = _fetchManagedAppMetadata(managed_app_id, token)
         metadata["token"] = token
         metadata["managed_app_id"] = managed_app_id
-        metadata.update(app_metadata)
+        metadata["mrg"] = mrg
         metadata_loaded = True
     return metadata
 
 
-def pegBillingCounter(dimension, hosts):
+def pegBillingCounter(plan_id, dimension, hosts):
     """
     Send usage quantity to billing API
     """
     metadata = getManAppIdAndMetadata()
     billing_data = {}
-    billing_data["resourceId"] = metadata["resource_id"]
+    billing_data["resourceId"] = metadata["managed_app_id"]  # TODO This does not work, figure out what data goes here
     billing_data["dimension"] = dimension
     billing_data["quantity"] = len(hosts)
     billing_data["effectiveStartTime"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-    billing_data["planId"] = metadata["plan_id"]
+    billing_data["planId"] = plan_id
     logger.debug("Billing payload: %s" % billing_data)
     auth_header = {"Authorization": "Bearer %s" % metadata["token"]}
     url = "https://marketplaceapi.microsoft.com/api/usageEvent?api-version=%s" % billing_api_version
@@ -197,6 +178,12 @@ def pegBillingCounter(dimension, hosts):
         response = requests.post(url, headers=auth_header, json=billing_data)
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
+        response_json = response.json()
+        for detail in response_json["details"]:
+            if "message" in detail and "cannot be found" in detail["message"]:
+                logger.info(response.text)
+                logger.info("This is probably not a marketplace application, exiting.")
+                sys.exit(0)
         logger.error("Billing payload not accepted: %s", e)
         logger.error(response.text)
         sys.exit(1)
@@ -208,8 +195,8 @@ def pegBillingCounter(dimension, hosts):
 
     billing_record = {}
     billing_record["managed_app_id"] = metadata["managed_app_id"]
-    billing_record["resource_id"] = metadata["resource_id"]
-    billing_record["plan"] = metadata["plan_id"]
+    billing_record["resource_id"] = metadata["mrg"]
+    billing_record["plan"] = plan_id
     billing_record["usage_event_id"] = event_id
     billing_record["dimension"] = dimension
     billing_record["hosts"] = ",".join(hosts)

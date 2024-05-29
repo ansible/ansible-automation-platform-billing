@@ -1,16 +1,16 @@
-from datetime import datetime, timezone
-from dateutil.relativedelta import relativedelta
-from django.core.exceptions import ObjectDoesNotExist
-from django.conf import settings
-from enum import Enum
 import json
+import logging
+from datetime import datetime, timezone
+from enum import Enum
+
 import yaml
+from dateutil.relativedelta import relativedelta
+from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 
 from aap_billing import BILLING_INTERFACE_AWS
-from aap_billing.main.models import JobHostSummary, Host
-from aap_billing.billing.models import BilledHost, BillingRecord, DateSetting, BaseQuantity
-
-import logging
+from aap_billing.billing.models import BaseQuantity, BilledHost, BillingRecord, DateSetting
+from aap_billing.main.models import Host, JobHostSummary
 
 logger = logging.getLogger()
 
@@ -237,7 +237,7 @@ def recordBillingInstance(billing_data):
             dimension=billing_data["dimension"],
             quantity=billing_data["quantity"],
             managed_app_id=billing_data["managed_app_id"],
-            resource_id=billing_data["resource_id"],
+            resource_id=billing_data["managed_app_id"],
             plan=billing_data["plan"],
             usage_event_id=billing_data["usage_event_id"],
             azure_status=billing_data["azure_status"],
@@ -260,28 +260,28 @@ def recordLastRunDateTime():
     setDate(DateSettingEnum.LAST_RUN_DATE, datetime.now(timezone.utc))
 
 
-def getBaseQuantity(offer_id, plan_id):
+def getBaseQuantity():
     """
-    Retrieve base quantity for this offer and plan from db
+    Retrieve base quantity from db
     """
     try:
-        res = BaseQuantity.objects.filter(plan_id=plan_id, offer_id=offer_id).get()
+        res = BaseQuantity.objects.filter(plan_id="unused", offer_id="unused").get()
         base_quantity = res.base_quantity
     except ObjectDoesNotExist:
         return None
     return base_quantity
 
 
-def recordBaseQuantity(offer_id, plan_id, base_quantity):
+def recordBaseQuantity(base_quantity):
     """
-    Store the base quantity for plan/offer combo
+    Store the base quantity
     """
-    res, created = BaseQuantity.objects.update_or_create(plan_id=plan_id, offer_id=offer_id, defaults={"base_quantity": base_quantity})
+    res, created = BaseQuantity.objects.update_or_create(plan_id="unused", offer_id="unused", defaults={"base_quantity": base_quantity})
     if not created:
-        msg = "Attempting to set base quantity for offer [%s] and plan [%s] when already set" % (offer_id, plan_id)
+        msg = "Attempting to set base quantity when already set"
         logger.error(msg)
         raise RuntimeError(msg)
-    logging.info("Base quantity for offer [%s] and plan [%s] set to [%d]" % (res.offer_id, res.plan_id, res.base_quantity))
+    logging.info("Base quantity set to [%d]" % (res.base_quantity))
 
 
 def getHostsToBill(period_start, base_quantity):

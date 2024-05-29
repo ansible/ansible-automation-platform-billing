@@ -1,18 +1,17 @@
-from aap_billing import BILLING_INTERFACE_AWS
-from aap_billing import BILLING_INTERFACE_AZURE
-from aap_billing import cli
-from aap_billing.aws import awsapi
-from aap_billing.azure import azapi
-from aap_billing.billing.models import BilledHost, BillingRecord
-from aap_billing.main.models import JobHostSummary, Host
-from aap_billing.db import db
 from datetime import datetime, timezone
+from unittest import mock
+
+import botocore
 from django.conf import settings
 from django.db import connection
 from django.test import TransactionTestCase
-from io import StringIO
-from unittest import mock
-import botocore
+
+from aap_billing import BILLING_INTERFACE_AWS, BILLING_INTERFACE_AZURE, cli
+from aap_billing.aws import awsapi
+from aap_billing.azure import azapi
+from aap_billing.billing.models import BilledHost, BillingRecord
+from aap_billing.db import db
+from aap_billing.main.models import Host, JobHostSummary
 
 orig = botocore.client.BaseClient._make_api_call
 
@@ -52,14 +51,6 @@ def mocked_azure_apis(*args, **kwargs):
         # Return merged resource group packet
         data = {"managedBy": "applications", "tags": {"aks-managed-cluster-rg": "resource_group"}}
         return MockResponse(data, 200)
-    elif "applications" in args[0]:
-        # Return managed application packet
-        data = {
-            "properties": {"billingDetails": {"resourceUsageId": "resource_usage_id_val"}},
-            "plan": {"name": "scottsplan", "product": "bhavensttest-preview"},
-            "kind": "MarketPlace",
-        }
-        return MockResponse(data, 200)
     elif "usageEvent" in args[0]:
         # Return billing response
         data = {
@@ -74,11 +65,6 @@ def mocked_azure_apis(*args, **kwargs):
         }
         return MockResponse(data, 200)
     return MockResponse(None, 404)
-
-
-def mocked_storage_file(*args, **kwargs):
-    data = '{"offers": [{"name": "Bryan Test", "id": "bhavensttest", "plans": [{"name": "Updated Dimension", "id": "plan7", "base_quantity": 0}]}]}'
-    return StringIO(data)
 
 
 class BillingTests(TransactionTestCase):
@@ -112,7 +98,7 @@ class BillingTests(TransactionTestCase):
             (period_start, _) = db.calcBillingPeriod(today)
             unbilled = db.getUnbilledHosts(period_start)  # 4 hosts from fixtures
             self.assertEqual(len(unbilled), 4)
-            billing_record = azapi.pegBillingCounter(settings.DIMENSION, unbilled)
+            billing_record = azapi.pegBillingCounter(settings.PLAN_ID, settings.DIMENSION, unbilled)
             db.recordBillingInstance(billing_record)
             records = BillingRecord.objects.all()  # One new record
             self.assertEqual(len(records), 1)
@@ -308,7 +294,7 @@ class BillingTests(TransactionTestCase):
             today = datetime.now(timezone.utc)
 
             hosts = db.getUnbilledHosts(datetime(2021, 12, 31, tzinfo=timezone.utc))
-            billing_data = azapi.pegBillingCounter(settings.DIMENSION, hosts)
+            billing_data = azapi.pegBillingCounter(settings.PLAN_ID, settings.DIMENSION, hosts)
             db.recordBillingInstance(billing_data)
             record = BillingRecord.objects.first()
             self.assertEqual(record.quantity, 4)
@@ -340,23 +326,21 @@ class BillingTests(TransactionTestCase):
                 self.assertEqual(record.billed_date.month, today.month)
                 self.assertEqual(record.billed_date.year, today.year)
 
-    @mock.patch("builtins.open", side_effect=mocked_storage_file)
-    def testBaseQuantity(self, mock_get):
-        # Base quantity of 0 (from mock)
-        res = cli.determineBaseQuantity("bhavensttest", "plan7")
-        self.assertEqual(res, 0)
+    def testBaseQuantityMissing(self):
+        with self.settings(INCLUDED_NODES=None):
+            with self.assertRaises(SystemExit):
+                res = cli.determineBaseQuantity()
+                self.assertIsNone(res, msg="Base quantity should not exist yet.")
+        with self.settings(INCLUDED_NODES=10):
+            res = cli.determineBaseQuantity()
+            self.assertEqual(res, 10, msg="Base quantity should match INCLUDED_NODES val")
 
-        with self.assertRaises(SystemExit):
-            res = cli.determineBaseQuantity("offer", "plan")
-            self.assertIsNone(res, msg="Base quantity should not exist")
-        db.recordBaseQuantity("offer", "plan", 10)
-        res = cli.determineBaseQuantity("offer", "plan")
-        self.assertEqual(res, 10, msg="Base quantity did not match expected: %d" % res)
-        with self.assertRaises(SystemExit):
-            res = cli.determineBaseQuantity("offer", "plan2")
-            self.assertIsNone(res, msg="Base quantity for plan2 should not exist.")
+    def testBaseQuantityDefault(self):
+        res = cli.determineBaseQuantity()
+        self.assertEqual(res, 50, msg="Should match test settings file.")
         with self.assertRaises(RuntimeError):
-            db.recordBaseQuantity("bhavensttest", "plan7", 99)
+            # DB should not allow resetting of base quantity
+            db.recordBaseQuantity(99)
 
     def testBillingThreshold(self):
         # Storage of hosts lower than billing threshold check
