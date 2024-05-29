@@ -84,7 +84,6 @@ def main():
             db.markHostsBilled(unbilled)
         else:
             # Azure
-            metadata = azapi.getManAppIdAndMetadata()
             plan_id = get_plan()
 
             base_quantity = determineBaseQuantity()
