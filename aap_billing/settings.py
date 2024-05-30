@@ -2,11 +2,12 @@
 Django settings for project.
 """
 
-from django.core.management.utils import get_random_secret_key
 import logging
-from pathlib import Path
 import os
 import sys
+from pathlib import Path
+
+from django.core.management.utils import get_random_secret_key
 
 logger = logging.getLogger()
 
@@ -47,6 +48,7 @@ DIMENSION = "managed_active_node"
 """
 Import /etc/billing/billingconf.py settings file if it exists.
 Database settings are expected to be defined there.
+Also INCLUDED_NODES and PLAN_ID expected in loaded settings.
 """
 
 DATABASES = {}

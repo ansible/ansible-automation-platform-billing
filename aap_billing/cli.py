@@ -1,19 +1,19 @@
 #!/usr/bin/python3
-from aap_billing import BILLING_INTERFACE_AWS
-from aap_billing.azure import azapi
-from aap_billing.aws import awsapi
-from aap_billing.utils import plan_file_loader
-from django.conf import settings
-
 import argparse
-import django
 import logging
 import os
 import sys
 
+import django
+from django.conf import settings
+
+from aap_billing import BILLING_INTERFACE_AWS
+from aap_billing.aws import awsapi
+from aap_billing.azure import azapi
+
 logger = logging.getLogger()
 
-version = "v0.2.12"
+version = "v0.3.0"
 
 
 def processArgs():
@@ -25,38 +25,29 @@ def processArgs():
     return parser.parse_args()
 
 
-def determineBaseQuantity(offer_id, plan_id):
+def get_plan():
+    plan_id = settings.PLAN_ID
+    if plan_id is None:
+        logging.fatal("Missing PLAN_ID in settings file, exiting")
+    return plan_id
+
+
+def determineBaseQuantity():
     if "db" not in sys.modules:
         from aap_billing.db import db  # noqa: E402 - For unit test purposes
 
-    base_quantity = db.getBaseQuantity(offer_id, plan_id)
+    base_quantity = db.getBaseQuantity()
     if base_quantity is None:
-        base_quantity = plan_file_loader.fetchBaseQuantity(offer_id, plan_id)
+        # Could be a string or an int
+        try:
+            base_quantity = int(settings.INCLUDED_NODES)
+        except (ValueError, TypeError):
+            base_quantity = settings.INCLUDED_NODES
         if base_quantity is None:
-            logging.fatal("Unable to find base quantity for offer [%s] and plan [%s]" % (offer_id, plan_id))
+            logging.fatal("Missing INCLUDED_NODES in settings file, exiting")
             sys.exit(1)
-        else:
-            db.recordBaseQuantity(offer_id, plan_id, base_quantity)
+        db.recordBaseQuantity(base_quantity)
     return base_quantity
-
-
-def exitIfNotMarketplaceDeployment(metadata):
-    if metadata["kind"].casefold() != "marketplace":
-        logger.info(
-            """
-            Billing is not active/functional in single tenant deployments
-            """
-        )
-        sys.exit(0)
-    if "resource_id" not in metadata:
-        logger.error(
-            """
-            No billing details present on managed app metadata.
-            Check offer/plan billing configuration.  If billing
-            is configured properly, report this error.
-            """
-        )
-        sys.exit(1)
 
 
 # Main
@@ -97,20 +88,15 @@ def main():
             db.markHostsBilled(unbilled)
         else:
             # Azure
-            # Get offer/plan from metadata
-            metadata = azapi.getManAppIdAndMetadata()
-            # Ensure Marketplace deployment with billing data
-            exitIfNotMarketplaceDeployment(metadata)
+            plan_id = get_plan()
 
-            offer_id = metadata["offer_id"]
-            plan_id = metadata["plan_id"]
-            base_quantity = determineBaseQuantity(offer_id, plan_id)
-            logging.debug("Base quantity for offer [%s] and plan [%s] is [%d]" % (offer_id, plan_id, base_quantity))
+            base_quantity = determineBaseQuantity()
+            logging.debug("Base quantity is [%d]" % (base_quantity))
 
             (hosts_to_bill, hosts_to_mark) = db.getHostsToBill(period_start, base_quantity)
             if len(hosts_to_bill) > 0:
                 logger.info("Executed hosts exceed base quantity, sending billing data to Metering Service")
-                billing_record = azapi.pegBillingCounter(settings.DIMENSION, hosts_to_bill)
+                billing_record = azapi.pegBillingCounter(plan_id, settings.DIMENSION, hosts_to_bill)
 
                 # Record billing data
                 db.recordBillingInstance(billing_record)

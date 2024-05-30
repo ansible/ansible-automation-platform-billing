@@ -2,11 +2,11 @@
 Django (test) settings for project.
 """
 
-from django.core.management.utils import get_random_secret_key
-
 import logging
-from pathlib import Path
 import os
+from pathlib import Path
+
+from django.core.management.utils import get_random_secret_key
 
 logger = logging.getLogger()
 
@@ -44,8 +44,9 @@ host counts.
 """
 DIMENSION = "managed_active_node"
 
-PLAN_CONFIG_URL = "https://urlurlurl"
-PLAN_STORAGE_TOKEN = "tokentokentoken"
+INCLUDED_NODES = "50"
+
+PLAN_ID = "plan7"
 
 # Test databases
 DATABASES = {

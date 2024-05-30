@@ -48,6 +48,12 @@ class BillingRecord(models.Model):
 
     resource_id = models.CharField(
         max_length=1024,
+        null=True,
+    )
+
+    resource_uri = models.CharField(
+        max_length=1024,
+        null=True,
     )
 
     plan = models.CharField(
@@ -68,6 +74,11 @@ class BillingRecord(models.Model):
     azure_message_time = models.DateTimeField(null=True)
 
     azure_resource_id = models.CharField(
+        max_length=1024,
+        null=True,
+    )
+
+    azure_resource_uri = models.CharField(
         max_length=1024,
         null=True,
     )
