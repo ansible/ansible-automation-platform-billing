@@ -44,7 +44,7 @@ host counts.
 """
 DIMENSION = "managed_active_node"
 
-INCLUDED_NODES = 50
+INCLUDED_NODES = "50"
 
 PLAN_ID = "plan7"
 

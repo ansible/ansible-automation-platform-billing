@@ -38,7 +38,11 @@ def determineBaseQuantity():
 
     base_quantity = db.getBaseQuantity()
     if base_quantity is None:
-        base_quantity = int(settings.INCLUDED_NODES)
+        # Could be a string or an int
+        try:
+            base_quantity = int(settings.INCLUDED_NODES)
+        except (ValueError, TypeError):
+            base_quantity = settings.INCLUDED_NODES
         if base_quantity is None:
             logging.fatal("Missing INCLUDED_NODES in settings file, exiting")
             sys.exit(1)
