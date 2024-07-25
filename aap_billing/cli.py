@@ -16,6 +16,12 @@ logger = logging.getLogger()
 version = "v0.3.0"
 
 
+def fakeFunction():
+    four = 2 + 2
+    assert four == 4
+    print("yep, it's 4 all right")
+
+
 def processArgs():
     parser = argparse.ArgumentParser(
         description="Ansible Automation Platform billing connector",
@@ -57,6 +63,7 @@ def main():
         level=logging.DEBUG if args.debugmode else logging.INFO,
         format="%(levelname)s %(asctime)s\t%(message)s",
     )
+    fakeFunction()
 
     # Print version
     logging.info("Billing version: %s" % version)
