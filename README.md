@@ -74,4 +74,4 @@ SonarQube
 
 Sonar analysis is performed by Github Actions on the code repository
 for this project.
-Results available at [sonarcloud.io](https://sonarcloud.io/project/overview?id=aoc-aap-test-billing)
+Results available at [sonarcloud.io](https://sonarcloud.io/project/overview?id=ansible_ansible-automation-platform-azure-billing)
