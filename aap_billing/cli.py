@@ -36,16 +36,16 @@ def determineBaseQuantity():
     if "db" not in sys.modules:
         from aap_billing.db import db  # noqa: E402 - For unit test purposes
 
-    base_quantity = db.getBaseQuantity()
-    if base_quantity is None:
-        # Could be a string or an int
-        try:
-            base_quantity = int(settings.INCLUDED_NODES)
-        except (ValueError, TypeError):
-            base_quantity = settings.INCLUDED_NODES
-        if base_quantity is None:
-            logging.fatal("Missing INCLUDED_NODES in settings file, exiting")
-            sys.exit(1)
+    try:
+        base_quantity = int(settings.INCLUDED_HOSTS)  # Ensure integer conversion
+    except (ValueError, TypeError):
+        logger.fatal("Invalid or missing INCLUDED_HOSTS in settings file, exiting")
+        sys.exit(1)
+
+    current_base_quantity = db.getBaseQuantity()
+
+    if current_base_quantity is None or current_base_quantity != base_quantity:
+        logger.info("Updating database base quantity to match settings.INCLUDED_HOSTS [%d]" % base_quantity)
         db.recordBaseQuantity(base_quantity)
     return base_quantity
 
