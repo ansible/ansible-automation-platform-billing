@@ -187,12 +187,11 @@ def deduplicateHosts(host_list):
             except json.JSONDecodeError:
                 logger.error("Unable to parse vars for %s as json, giving up", executed_host)
 
-        # Default to executed_host unless a valid ansible_host is found
+        # Default to executed_host unless ansible_host is a valid string
         final_host_key = executed_host
-        if variables is not None and "ansible_host" in variables:
-            ansible_host_value = variables["ansible_host"]
-            # Only use ansible_host if it's not a dict
-            if not isinstance(ansible_host_value, dict):
+        if variables is not None:
+            ansible_host_value = variables.get("ansible_host")
+            if isinstance(ansible_host_value, str):
                 final_host_key = ansible_host_value
 
         deduped_hosts[final_host_key] = host_list[executed_host]
