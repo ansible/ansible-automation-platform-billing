@@ -141,7 +141,7 @@ def getManAppIdAndMetadata():
     Grab various info from metadata
     """
     global metadata_loaded
-    global metadata
+    global metadata  # noqa: F824
 
     if metadata_loaded:
         return metadata
