@@ -77,12 +77,12 @@ class BillingTests(TransactionTestCase):
 
     @classmethod
     def setUpClass(cls):
-        super(BillingTests, cls).setUpClass()
-
         # Create unmanaged job host summary table
         with connection.schema_editor() as schema_editor:
             schema_editor.create_model(JobHostSummary)
             schema_editor.create_model(Host)
+
+        super(BillingTests, cls).setUpClass()
 
     @mock.patch("requests.get", side_effect=mocked_azure_apis)
     @mock.patch("requests.post", side_effect=mocked_azure_apis)
