@@ -96,7 +96,7 @@ class BillingTests(TransactionTestCase):
             db.recordLastRunDateTime()
             run_date = db.getDate(db.DateSettingEnum.LAST_RUN_DATE)
             self.assertEqual(run_date.day, datetime.now(timezone.utc).day)
-            (period_start, _) = db.calcBillingPeriod(today)
+            period_start, _ = db.calcBillingPeriod(today)
             unbilled = db.getUnbilledHosts(period_start)  # 4 hosts from fixtures
             self.assertEqual(len(unbilled), 4)
             billing_record = azapi.pegBillingCounter(settings.PLAN_ID, settings.DIMENSION, unbilled)
@@ -135,7 +135,7 @@ class BillingTests(TransactionTestCase):
                 datetime(2022, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
             )
             today = datetime(2022, 2, 7, tzinfo=timezone.utc)
-            (period_start, _) = db.calcBillingPeriod(today)
+            period_start, _ = db.calcBillingPeriod(today)
             unbilled = db.getUnbilledHosts(period_start)  # 4 hosts from fixtures
             self.assertEqual(len(unbilled), 4)
             with mock.patch(
@@ -203,7 +203,7 @@ class BillingTests(TransactionTestCase):
                     db.DateSettingEnum.INSTALL_DATE,
                     datetime(datum[0], datum[1], datum[2], tzinfo=timezone.utc),
                 )
-                (period_start, period_end) = db.calcBillingPeriod(current_date=today)
+                period_start, period_end = db.calcBillingPeriod(current_date=today)
                 self.assertEqual(period_start.year, datum[3])
                 self.assertEqual(period_start.month, datum[4])
                 self.assertEqual(period_start.day, datum[5])
@@ -230,7 +230,7 @@ class BillingTests(TransactionTestCase):
                     db.DateSettingEnum.INSTALL_DATE,
                     datetime(datum[0], datum[1], datum[2], tzinfo=timezone.utc),
                 )
-                (period_start, period_end) = db.calcBillingPeriod(current_date=today)
+                period_start, period_end = db.calcBillingPeriod(current_date=today)
                 self.assertEqual(period_start.year, datum[3])
                 self.assertEqual(period_start.month, datum[4])
                 self.assertEqual(period_start.day, datum[5])
@@ -253,7 +253,7 @@ class BillingTests(TransactionTestCase):
                     db.DateSettingEnum.INSTALL_DATE,
                     datetime(datum[0], datum[1], datum[2], tzinfo=timezone.utc),
                 )
-                (period_start, period_end) = db.calcBillingPeriod(current_date=today)
+                period_start, period_end = db.calcBillingPeriod(current_date=today)
                 self.assertEqual(period_start.year, datum[3])
                 self.assertEqual(period_start.month, datum[4])
                 self.assertEqual(period_start.day, datum[5])
@@ -280,7 +280,7 @@ class BillingTests(TransactionTestCase):
                     db.DateSettingEnum.INSTALL_DATE,
                     datetime(datum[0], datum[1], datum[2], tzinfo=timezone.utc),
                 )
-                (period_start, period_end) = db.calcBillingPeriod(current_date=today)
+                period_start, period_end = db.calcBillingPeriod(current_date=today)
                 self.assertEqual(period_start.year, datum[3])
                 self.assertEqual(period_start.month, datum[4])
                 self.assertEqual(period_start.day, datum[5])
@@ -351,20 +351,20 @@ class BillingTests(TransactionTestCase):
         hosts = db.getUnbilledHosts(period_start)
         self.assertEqual(len(hosts), 4)
         # Bill all (base_quantity of 3)
-        (hosts_to_bill, hosts_to_mark) = db.getHostsToBill(period_start, 3)
+        hosts_to_bill, hosts_to_mark = db.getHostsToBill(period_start, 3)
         self.assertEqual(len(hosts_to_bill), 4)
         self.assertEqual(len(hosts_to_mark), 0)
         # Bill none (base_quantity of 10)
-        (hosts_to_bill, hosts_to_mark) = db.getHostsToBill(period_start, 10)
+        hosts_to_bill, hosts_to_mark = db.getHostsToBill(period_start, 10)
         self.assertEqual(len(hosts_to_bill), 0)
         self.assertEqual(len(hosts_to_mark), 4)
         # Bill part (base_quantity of 4)
-        (hosts_to_bill, hosts_to_mark) = db.getHostsToBill(period_start, 4)
+        hosts_to_bill, hosts_to_mark = db.getHostsToBill(period_start, 4)
         self.assertEqual(len(hosts_to_bill), 3)
         self.assertEqual(len(hosts_to_mark), 1)
 
         # Base quantity of 0
-        (hosts_to_bill, hosts_to_mark) = db.getHostsToBill(period_start, 0)
+        hosts_to_bill, hosts_to_mark = db.getHostsToBill(period_start, 0)
         self.assertEqual(len(hosts_to_bill), 4)
         self.assertEqual(len(hosts_to_mark), 0)
 
@@ -399,3 +399,128 @@ class BillingTests(TransactionTestCase):
             self.assertEqual(len(hosts), 4)
             self.assertIn("real_host", hosts)
             self.assertNotIn("host_alias_1", hosts)
+
+    def _addControllerHost(self, host_id, name, inventory_id, variables):
+        stamp = datetime(2022, 3, 3, tzinfo=timezone.utc)
+        Host.objects.create(
+            id=host_id,
+            created=stamp,
+            modified=stamp,
+            name=name,
+            inventory_id=inventory_id,
+            variables=variables,
+        )
+        # Unmanaged tables are not flushed between tests.
+        self.addCleanup(Host.objects.filter(id=host_id).delete)
+
+    def _addJobHostSummary(self, summary_id, host_id, host_name):
+        # save() on this read-only model does not insert. bulk_create does.
+        stamp = datetime(2022, 3, 4, tzinfo=timezone.utc)
+        JobHostSummary.objects.bulk_create(
+            [
+                JobHostSummary(
+                    id=summary_id,
+                    created=stamp,
+                    modified=stamp,
+                    job_id=80,
+                    host_id=host_id,
+                    host_name=host_name,
+                )
+            ]
+        )
+        # Unmanaged tables are not flushed between tests.
+        self.addCleanup(JobHostSummary.objects.filter(id=summary_id).delete)
+
+    def testDedupDistinguishesSameNameAcrossInventories(self):
+        # Two inventories can reuse a hostname with different ansible_host values.
+        db.setDate(db.DateSettingEnum.NEW_CALC_DATE, datetime(2022, 3, 1, tzinfo=timezone.utc))
+        self._addControllerHost(201, "shared", 10, 'ansible_host: "10.0.0.1"\n')
+        self._addControllerHost(202, "shared", 20, 'ansible_host: "10.0.0.2"\n')
+        self._addJobHostSummary(50, 201, "shared")
+        self._addJobHostSummary(51, 202, "shared")
+
+        hosts = db.getUnbilledHosts(datetime(2021, 12, 31, tzinfo=timezone.utc))
+        self.assertIn("10.0.0.1", hosts)
+        self.assertIn("10.0.0.2", hosts)
+        self.assertNotIn("shared", hosts)
+
+    def testDedupKeepsUnaliasedHostBesideAliasedTwin(self):
+        # A name collision must not copy one inventory's ansible_host onto the other.
+        db.setDate(db.DateSettingEnum.NEW_CALC_DATE, datetime(2022, 3, 1, tzinfo=timezone.utc))
+        self._addControllerHost(203, "db", 10, "")
+        self._addControllerHost(204, "db", 20, 'ansible_host: "10.1.1.1"\n')
+        self._addJobHostSummary(54, 203, "db")
+        self._addJobHostSummary(55, 204, "db")
+
+        hosts = db.getUnbilledHosts(datetime(2021, 12, 31, tzinfo=timezone.utc))
+        self.assertIn("db", hosts)
+        self.assertIn("10.1.1.1", hosts)
+
+    def testDedupStillCollapsesSameAnsibleHost(self):
+        # Distinct names that point at one physical host are still billed once.
+        db.setDate(db.DateSettingEnum.NEW_CALC_DATE, datetime(2022, 3, 1, tzinfo=timezone.utc))
+        self._addControllerHost(205, "alias-a", 10, 'ansible_host: "physical.example"\n')
+        self._addControllerHost(206, "alias-b", 20, 'ansible_host: "physical.example"\n')
+        self._addJobHostSummary(52, 205, "alias-a")
+        self._addJobHostSummary(53, 206, "alias-b")
+
+        hosts = db.getUnbilledHosts(datetime(2021, 12, 31, tzinfo=timezone.utc))
+        self.assertIn("physical.example", hosts)
+        self.assertNotIn("alias-a", hosts)
+        self.assertNotIn("alias-b", hosts)
+        self.assertEqual(hosts.count("physical.example"), 1)
+
+    def testDedupNameFallbackWhenHostRowMissing(self):
+        self._addControllerHost(301, "lonely", 7, 'ansible_host: "physical-1"\n')
+        deduped = db.deduplicateHosts({(9999, "lonely"): datetime(2022, 3, 4, tzinfo=timezone.utc)})
+        self.assertEqual(set(deduped), {"physical-1"})
+
+    def testDedupDoesNotGuessAmbiguousName(self):
+        # No matching host id and the name exists in two inventories: do not pick one.
+        self._addControllerHost(211, "shared", 10, 'ansible_host: "10.0.0.1"\n')
+        self._addControllerHost(212, "shared", 20, 'ansible_host: "10.0.0.2"\n')
+        when = datetime(2022, 3, 4, tzinfo=timezone.utc)
+        deduped = db.deduplicateHosts({(8888, "shared"): when, (7777, "shared"): when})
+        self.assertEqual(set(deduped), {"shared"})
+
+    def testDedupAcceptsBareHostName(self):
+        when = datetime(2022, 3, 4, tzinfo=timezone.utc)
+        self._addControllerHost(404, "bare", 8, 'ansible_host: "bare-target"\n')
+        deduped = db.deduplicateHosts({"bare": when})
+        self.assertEqual(set(deduped), {"bare-target"})
+
+    def testDedupParsesJsonWhenYamlFails(self):
+        when = datetime(2022, 3, 4, tzinfo=timezone.utc)
+        self._addControllerHost(401, "jsonhost", 8, '{"ansible_host": "from-json"}')
+        with mock.patch("aap_billing.db.db.yaml.safe_load", side_effect=db.yaml.YAMLError("bad")):
+            deduped = db.deduplicateHosts({(401, "jsonhost"): when})
+        self.assertEqual(set(deduped), {"from-json"})
+
+    def testDedupKeepsNameWhenVariablesDoNotParse(self):
+        when = datetime(2022, 3, 4, tzinfo=timezone.utc)
+        self._addControllerHost(402, "badhost", 8, ":")
+        deduped = db.deduplicateHosts({(402, "badhost"): when})
+        self.assertEqual(set(deduped), {"badhost"})
+
+    def testDedupIgnoresNonDictVariables(self):
+        when = datetime(2022, 3, 4, tzinfo=timezone.utc)
+        self._addControllerHost(403, "listhost", 8, "- just-a-list\n")
+        deduped = db.deduplicateHosts({(403, "listhost"): when})
+        self.assertEqual(set(deduped), {"listhost"})
+
+    def testAzureGetFailureExits(self):
+        with mock.patch("aap_billing.azure.azapi.requests.get", side_effect=azapi.requests.exceptions.RequestException("nope")):
+            with self.assertRaises(SystemExit):
+                azapi._getJsonPayload("http://example", {})
+
+    def testAzurePostFailureExits(self):
+        class Rejected:
+            text = "nope"
+
+            def raise_for_status(self):
+                raise azapi.requests.exceptions.RequestException("rejected")
+
+        with mock.patch("aap_billing.azure.azapi.getManAppIdAndMetadata", return_value={"managed_app_id": "app", "token": "tok"}):
+            with mock.patch("aap_billing.azure.azapi.requests.post", return_value=Rejected()):
+                with self.assertRaises(SystemExit):
+                    azapi.pegBillingCounter("plan", "dim", ["h1"])

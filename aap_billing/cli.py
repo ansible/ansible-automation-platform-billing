@@ -76,7 +76,7 @@ def main():
     db.rolloverIfNeeded()
 
     logger.info("Checking for newly encountered hosts.")
-    (period_start, _) = db.calcBillingPeriod()
+    period_start, _ = db.calcBillingPeriod()
     unbilled = db.getUnbilledHosts(period_start)
 
     if unbilled:
@@ -97,7 +97,7 @@ def main():
             base_quantity = determineBaseQuantity()
             logging.debug("Base quantity is [%d]" % (base_quantity))
 
-            (hosts_to_bill, hosts_to_mark) = db.getHostsToBill(period_start, base_quantity)
+            hosts_to_bill, hosts_to_mark = db.getHostsToBill(period_start, base_quantity)
             if len(hosts_to_bill) > 0:
                 logger.info("Executed hosts exceed base quantity, sending billing data to Metering Service")
                 billing_record = azapi.pegBillingCounter(plan_id, settings.DIMENSION, hosts_to_bill)
