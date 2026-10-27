@@ -140,17 +140,20 @@ def getUnbilledHosts(startDate):
                replace the hostname with the value of that variable.  This
                is intended to bill only once for hosts with multiple aliases
                pointing to the same physical host via "ansible_host". AAP-21379
+    AAP-99351 - The same hostname can exist in more than one inventory.
+               Keep host_id with each execution so variable lookup uses the
+               inventory-specific host row.
     """
-    executed_hosts = {
-        # Grabs latest modified execution for hosts with multiple
-        # executions
-        x.host_name: x.modified
-        for x in JobHostSummary.objects.filter(modified__gt=startDate).order_by("host_name", "modified")
-    }
+    summaries = JobHostSummary.objects.filter(modified__gt=startDate).order_by("host_name", "modified")
     if getDate(DateSettingEnum.NEW_CALC_DATE) is not None:
+        # Latest run per controller host. Keying only by host_name would
+        # collapse two inventories that reuse a hostname before ansible_host
+        # can be read from the correct row.
+        executed_hosts = {(summary.host_id, summary.host_name): summary.modified for summary in summaries}
         host_list = deduplicateHosts(executed_hosts)
     else:
-        host_list = executed_hosts
+        # Grabs latest modified execution for hosts with multiple executions
+        host_list = {summary.host_name: summary.modified for summary in summaries}
     billed_hosts = {x.host_name: x.billed_date for x in BilledHost.objects.filter(rollover_date__isnull=True)}
     # Use set to avoid duplicates due to lowercasing
     new_hosts = set()
@@ -160,41 +163,101 @@ def getUnbilledHosts(startDate):
     return list(new_hosts)
 
 
-def deduplicateHosts(host_list):
-    defined_hosts_vars = {x.name: x.variables for x in Host.objects.all()}
-    # return [x for x in host_list if x.name in defined_hosts.keys() and "ansible_host" not in ]
-    # IF host ID shows up in defined hosts
-    # If defined host has variables
-    # If variables have ansible_host
-    # Then replace host name by value of ansible_host
-    deduped_hosts = {}
-    for executed_host in host_list.keys():
-        variables = {}
+def _index_defined_hosts():
+    """
+    Index controller hosts so variable lookup can tell inventories apart.
 
-        # If this host doesn't have a record (not sure this would ever happen), skip it
-        if executed_host not in defined_hosts_vars:
-            deduped_hosts[executed_host] = host_list[executed_host]
-            continue
+    Host.name is unique per inventory. A name-only map keeps whichever row
+    queryset order returned last and can attach the wrong ansible_host.
+    """
+    hosts_by_id = {}
+    hosts_by_inventory_and_name = {}
+    hosts_by_name = {}
+    for host in Host.objects.all():
+        hosts_by_id[host.id] = host
+        if host.inventory_id is not None:
+            hosts_by_inventory_and_name[(host.inventory_id, host.name)] = host
+        hosts_by_name.setdefault(host.name, []).append(host)
+    unique_hosts_by_name = {name: matches[0] for name, matches in hosts_by_name.items() if len(matches) == 1}
+    return hosts_by_id, hosts_by_inventory_and_name, unique_hosts_by_name
 
-        # Variables can be stored as yaml or json
-        # Yaml parser SHOULD handle json, but try json parser too just in case
+
+def _executed_host_identity(executed_key):
+    """
+    Accept (host_id, host_name) or a bare host name.
+    """
+    if isinstance(executed_key, tuple) and len(executed_key) == 2:
+        return executed_key
+    return None, executed_key
+
+
+def _resolve_defined_host(host_id, host_name, hosts_by_id, hosts_by_inventory_and_name, unique_hosts_by_name):
+    """
+    Select the host row whose variables should be used for this execution.
+
+    host_id identifies the inventory-specific row. Variables are read from
+    that row's (inventory_id, name) entry. If the host row is gone, fall
+    back to a name match only when the name exists in a single inventory.
+    """
+    host = hosts_by_id.get(host_id) if host_id else None
+    if host is not None and host.inventory_id is not None:
+        return hosts_by_inventory_and_name.get((host.inventory_id, host.name), host)
+    if host is not None:
+        return host
+    return unique_hosts_by_name.get(host_name)
+
+
+def _load_host_variables(raw_variables, host_name):
+    """
+    Variables can be stored as yaml or json.
+    Yaml parser SHOULD handle json, but try json parser too just in case.
+    """
+    if not raw_variables:
+        return {}
+    try:
+        variables = yaml.safe_load(raw_variables)
+    except yaml.YAMLError:
+        logger.error("Unable to parse vars for %s as yaml, trying json", host_name)
         try:
-            variables = yaml.safe_load(defined_hosts_vars[executed_host])
-        except yaml.YAMLError:
-            logger.error("Unable to parse vars for %s as yaml, trying json", executed_host)
-            try:
-                variables = json.loads(defined_hosts_vars[executed_host])
-            except json.JSONDecodeError:
-                logger.error("Unable to parse vars for %s as json, giving up", executed_host)
+            variables = json.loads(raw_variables)
+        except json.JSONDecodeError:
+            logger.error("Unable to parse vars for %s as json, giving up", host_name)
+            return {}
+    if not isinstance(variables, dict):
+        return {}
+    return variables
+
+
+def deduplicateHosts(host_list):
+    """
+    Replace a hostname with ansible_host when that variable names the
+    physical host (AAP-21379).
+
+    Lookup is by host id and (inventory_id, name), not by hostname alone,
+    so two inventories can reuse a name without swapping variables
+    (AAP-99351). ansible_host is applied only when it is a string
+    (AAP-43467).
+    """
+    hosts_by_id, hosts_by_inventory_and_name, unique_hosts_by_name = _index_defined_hosts()
+    deduped_hosts = {}
+    for executed_key, modified in host_list.items():
+        host_id, executed_host = _executed_host_identity(executed_key)
+        host = _resolve_defined_host(
+            host_id,
+            executed_host,
+            hosts_by_id,
+            hosts_by_inventory_and_name,
+            unique_hosts_by_name,
+        )
+        variables = _load_host_variables(host.variables, executed_host) if host is not None else {}
 
         # Default to executed_host unless ansible_host is a valid string
         final_host_key = executed_host
-        if variables is not None:
-            ansible_host_value = variables.get("ansible_host")
-            if isinstance(ansible_host_value, str):
-                final_host_key = ansible_host_value
+        ansible_host_value = variables.get("ansible_host")
+        if isinstance(ansible_host_value, str):
+            final_host_key = ansible_host_value
 
-        deduped_hosts[final_host_key] = host_list[executed_host]
+        deduped_hosts[final_host_key] = modified
 
     return deduped_hosts
 

@@ -47,7 +47,9 @@ class JobHostSummary(models.Model):
 
 class Host(models.Model):
     """
-    Read-only access to main_host table (only needed columns)
+    Read-only access to main_host table (only needed columns).
+
+    name is unique together with inventory_id, not across the controller.
     """
 
     class Meta:
@@ -63,5 +65,8 @@ class Host(models.Model):
     name = models.CharField(
         max_length=512,
     )
+
+    # Inventory that owns this host. Host names are unique per inventory.
+    inventory_id = models.PositiveIntegerField(null=True, blank=True)
 
     variables = models.TextField(blank=True)

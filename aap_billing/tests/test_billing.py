@@ -399,3 +399,86 @@ class BillingTests(TransactionTestCase):
             self.assertEqual(len(hosts), 4)
             self.assertIn("real_host", hosts)
             self.assertNotIn("host_alias_1", hosts)
+
+    def _addControllerHost(self, host_id, name, inventory_id, variables):
+        stamp = datetime(2022, 3, 3, tzinfo=timezone.utc)
+        Host.objects.create(
+            id=host_id,
+            created=stamp,
+            modified=stamp,
+            name=name,
+            inventory_id=inventory_id,
+            variables=variables,
+        )
+        # Unmanaged tables are not flushed between tests.
+        self.addCleanup(Host.objects.filter(id=host_id).delete)
+
+    def _addJobHostSummary(self, summary_id, host_id, host_name):
+        # save() on this read-only model does not insert. bulk_create does.
+        stamp = datetime(2022, 3, 4, tzinfo=timezone.utc)
+        JobHostSummary.objects.bulk_create(
+            [
+                JobHostSummary(
+                    id=summary_id,
+                    created=stamp,
+                    modified=stamp,
+                    job_id=80,
+                    host_id=host_id,
+                    host_name=host_name,
+                )
+            ]
+        )
+        # Unmanaged tables are not flushed between tests.
+        self.addCleanup(JobHostSummary.objects.filter(id=summary_id).delete)
+
+    def testDedupDistinguishesSameNameAcrossInventories(self):
+        # Two inventories can reuse a hostname with different ansible_host values.
+        db.setDate(db.DateSettingEnum.NEW_CALC_DATE, datetime(2022, 3, 1, tzinfo=timezone.utc))
+        self._addControllerHost(201, "shared", 10, 'ansible_host: "10.0.0.1"\n')
+        self._addControllerHost(202, "shared", 20, 'ansible_host: "10.0.0.2"\n')
+        self._addJobHostSummary(50, 201, "shared")
+        self._addJobHostSummary(51, 202, "shared")
+
+        hosts = db.getUnbilledHosts(datetime(2021, 12, 31, tzinfo=timezone.utc))
+        self.assertIn("10.0.0.1", hosts)
+        self.assertIn("10.0.0.2", hosts)
+        self.assertNotIn("shared", hosts)
+
+    def testDedupKeepsUnaliasedHostBesideAliasedTwin(self):
+        # A name collision must not copy one inventory's ansible_host onto the other.
+        db.setDate(db.DateSettingEnum.NEW_CALC_DATE, datetime(2022, 3, 1, tzinfo=timezone.utc))
+        self._addControllerHost(203, "db", 10, "")
+        self._addControllerHost(204, "db", 20, 'ansible_host: "10.1.1.1"\n')
+        self._addJobHostSummary(54, 203, "db")
+        self._addJobHostSummary(55, 204, "db")
+
+        hosts = db.getUnbilledHosts(datetime(2021, 12, 31, tzinfo=timezone.utc))
+        self.assertIn("db", hosts)
+        self.assertIn("10.1.1.1", hosts)
+
+    def testDedupStillCollapsesSameAnsibleHost(self):
+        # Distinct names that point at one physical host are still billed once.
+        db.setDate(db.DateSettingEnum.NEW_CALC_DATE, datetime(2022, 3, 1, tzinfo=timezone.utc))
+        self._addControllerHost(205, "alias-a", 10, 'ansible_host: "physical.example"\n')
+        self._addControllerHost(206, "alias-b", 20, 'ansible_host: "physical.example"\n')
+        self._addJobHostSummary(52, 205, "alias-a")
+        self._addJobHostSummary(53, 206, "alias-b")
+
+        hosts = db.getUnbilledHosts(datetime(2021, 12, 31, tzinfo=timezone.utc))
+        self.assertIn("physical.example", hosts)
+        self.assertNotIn("alias-a", hosts)
+        self.assertNotIn("alias-b", hosts)
+        self.assertEqual(hosts.count("physical.example"), 1)
+
+    def testDedupNameFallbackWhenHostRowMissing(self):
+        self._addControllerHost(301, "lonely", 7, 'ansible_host: "physical-1"\n')
+        deduped = db.deduplicateHosts({(9999, "lonely"): datetime(2022, 3, 4, tzinfo=timezone.utc)})
+        self.assertEqual(set(deduped), {"physical-1"})
+
+    def testDedupDoesNotGuessAmbiguousName(self):
+        # No matching host id and the name exists in two inventories: do not pick one.
+        self._addControllerHost(211, "shared", 10, 'ansible_host: "10.0.0.1"\n')
+        self._addControllerHost(212, "shared", 20, 'ansible_host: "10.0.0.2"\n')
+        when = datetime(2022, 3, 4, tzinfo=timezone.utc)
+        deduped = db.deduplicateHosts({(8888, "shared"): when, (7777, "shared"): when})
+        self.assertEqual(set(deduped), {"shared"})
