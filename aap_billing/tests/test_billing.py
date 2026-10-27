@@ -482,3 +482,45 @@ class BillingTests(TransactionTestCase):
         when = datetime(2022, 3, 4, tzinfo=timezone.utc)
         deduped = db.deduplicateHosts({(8888, "shared"): when, (7777, "shared"): when})
         self.assertEqual(set(deduped), {"shared"})
+
+    def testDedupAcceptsBareHostName(self):
+        when = datetime(2022, 3, 4, tzinfo=timezone.utc)
+        self._addControllerHost(404, "bare", 8, 'ansible_host: "bare-target"\n')
+        deduped = db.deduplicateHosts({"bare": when})
+        self.assertEqual(set(deduped), {"bare-target"})
+
+    def testDedupParsesJsonWhenYamlFails(self):
+        when = datetime(2022, 3, 4, tzinfo=timezone.utc)
+        self._addControllerHost(401, "jsonhost", 8, '{"ansible_host": "from-json"}')
+        with mock.patch("aap_billing.db.db.yaml.safe_load", side_effect=db.yaml.YAMLError("bad")):
+            deduped = db.deduplicateHosts({(401, "jsonhost"): when})
+        self.assertEqual(set(deduped), {"from-json"})
+
+    def testDedupKeepsNameWhenVariablesDoNotParse(self):
+        when = datetime(2022, 3, 4, tzinfo=timezone.utc)
+        self._addControllerHost(402, "badhost", 8, ":")
+        deduped = db.deduplicateHosts({(402, "badhost"): when})
+        self.assertEqual(set(deduped), {"badhost"})
+
+    def testDedupIgnoresNonDictVariables(self):
+        when = datetime(2022, 3, 4, tzinfo=timezone.utc)
+        self._addControllerHost(403, "listhost", 8, "- just-a-list\n")
+        deduped = db.deduplicateHosts({(403, "listhost"): when})
+        self.assertEqual(set(deduped), {"listhost"})
+
+    def testAzureGetFailureExits(self):
+        with mock.patch("aap_billing.azure.azapi.requests.get", side_effect=azapi.requests.exceptions.RequestException("nope")):
+            with self.assertRaises(SystemExit):
+                azapi._getJsonPayload("http://example", {})
+
+    def testAzurePostFailureExits(self):
+        class Rejected:
+            text = "nope"
+
+            def raise_for_status(self):
+                raise azapi.requests.exceptions.RequestException("rejected")
+
+        with mock.patch("aap_billing.azure.azapi.getManAppIdAndMetadata", return_value={"managed_app_id": "app", "token": "tok"}):
+            with mock.patch("aap_billing.azure.azapi.requests.post", return_value=Rejected()):
+                with self.assertRaises(SystemExit):
+                    azapi.pegBillingCounter("plan", "dim", ["h1"])
