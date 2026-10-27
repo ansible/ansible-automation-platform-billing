@@ -21,7 +21,7 @@ def processArgs():
 
 class PeriodRecord:
     def __init__(self, period_date):
-        (self.start_date, self.end_date) = db.calcBillingPeriod(period_date)
+        self.start_date, self.end_date = db.calcBillingPeriod(period_date)
         self.records = BillingRecord.objects.filter(billed_date__range=(self.start_date, self.end_date)).order_by("-billed_date")
         self.unreported = BilledHost.objects.filter(billed_date__range=(self.start_date, self.end_date), reported=False).order_by("-billed_date")
 

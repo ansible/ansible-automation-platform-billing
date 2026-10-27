@@ -10,8 +10,10 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      # Checks-out under $GITHUB_WORKSPACE
+      # Full history so SonarCloud can resolve main and classify new code.
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Install tox
         run: pip install tox
@@ -24,10 +26,6 @@ jobs:
 
       - name: Run code coverage
         run: tox -e coverage
-
-      # See https://sonarsource.atlassian.net/browse/SONARPY-1203
-      - name: Fix paths in coverage file
-        run: sed -i 's/\/home\/runner\/work\/ansible-automation-platform-billing\/ansible-automation-platform-billing\//\/github\/workspace\//g' coverage.xml
 
       # https://handbook.eng.ansible.com/Quality/sonar-config
       # The SonarCloud token secret name differs by org. SONAR_TOKEN_SECRET_NAME

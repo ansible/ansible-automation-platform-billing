@@ -108,7 +108,7 @@ def rolloverIfNeeded():
     mark all accumulated hosts during the preceeding billing period as
     rolled over to start accumulating new hosts for the new billing period.
     """
-    (period_start, period_end) = calcBillingPeriod()
+    period_start, period_end = calcBillingPeriod()
     logger.info("Billing period (%s) to (%s)." % (period_start, period_end))
     # Check if stored billing period matches calculated billing period
     if period_start != getDate(DateSettingEnum.PERIOD_START):
@@ -157,8 +157,8 @@ def getUnbilledHosts(startDate):
     billed_hosts = {x.host_name: x.billed_date for x in BilledHost.objects.filter(rollover_date__isnull=True)}
     # Use set to avoid duplicates due to lowercasing
     new_hosts = set()
-    for host_name in host_list.keys():
-        if host_name.lower() not in billed_hosts.keys():
+    for host_name in host_list:
+        if host_name.lower() not in billed_hosts:
             new_hosts.add(host_name.lower())
     return list(new_hosts)
 

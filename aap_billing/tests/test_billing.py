@@ -96,7 +96,7 @@ class BillingTests(TransactionTestCase):
             db.recordLastRunDateTime()
             run_date = db.getDate(db.DateSettingEnum.LAST_RUN_DATE)
             self.assertEqual(run_date.day, datetime.now(timezone.utc).day)
-            (period_start, _) = db.calcBillingPeriod(today)
+            period_start, _ = db.calcBillingPeriod(today)
             unbilled = db.getUnbilledHosts(period_start)  # 4 hosts from fixtures
             self.assertEqual(len(unbilled), 4)
             billing_record = azapi.pegBillingCounter(settings.PLAN_ID, settings.DIMENSION, unbilled)
@@ -135,7 +135,7 @@ class BillingTests(TransactionTestCase):
                 datetime(2022, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
             )
             today = datetime(2022, 2, 7, tzinfo=timezone.utc)
-            (period_start, _) = db.calcBillingPeriod(today)
+            period_start, _ = db.calcBillingPeriod(today)
             unbilled = db.getUnbilledHosts(period_start)  # 4 hosts from fixtures
             self.assertEqual(len(unbilled), 4)
             with mock.patch(
@@ -203,7 +203,7 @@ class BillingTests(TransactionTestCase):
                     db.DateSettingEnum.INSTALL_DATE,
                     datetime(datum[0], datum[1], datum[2], tzinfo=timezone.utc),
                 )
-                (period_start, period_end) = db.calcBillingPeriod(current_date=today)
+                period_start, period_end = db.calcBillingPeriod(current_date=today)
                 self.assertEqual(period_start.year, datum[3])
                 self.assertEqual(period_start.month, datum[4])
                 self.assertEqual(period_start.day, datum[5])
@@ -230,7 +230,7 @@ class BillingTests(TransactionTestCase):
                     db.DateSettingEnum.INSTALL_DATE,
                     datetime(datum[0], datum[1], datum[2], tzinfo=timezone.utc),
                 )
-                (period_start, period_end) = db.calcBillingPeriod(current_date=today)
+                period_start, period_end = db.calcBillingPeriod(current_date=today)
                 self.assertEqual(period_start.year, datum[3])
                 self.assertEqual(period_start.month, datum[4])
                 self.assertEqual(period_start.day, datum[5])
@@ -253,7 +253,7 @@ class BillingTests(TransactionTestCase):
                     db.DateSettingEnum.INSTALL_DATE,
                     datetime(datum[0], datum[1], datum[2], tzinfo=timezone.utc),
                 )
-                (period_start, period_end) = db.calcBillingPeriod(current_date=today)
+                period_start, period_end = db.calcBillingPeriod(current_date=today)
                 self.assertEqual(period_start.year, datum[3])
                 self.assertEqual(period_start.month, datum[4])
                 self.assertEqual(period_start.day, datum[5])
@@ -280,7 +280,7 @@ class BillingTests(TransactionTestCase):
                     db.DateSettingEnum.INSTALL_DATE,
                     datetime(datum[0], datum[1], datum[2], tzinfo=timezone.utc),
                 )
-                (period_start, period_end) = db.calcBillingPeriod(current_date=today)
+                period_start, period_end = db.calcBillingPeriod(current_date=today)
                 self.assertEqual(period_start.year, datum[3])
                 self.assertEqual(period_start.month, datum[4])
                 self.assertEqual(period_start.day, datum[5])
@@ -351,20 +351,20 @@ class BillingTests(TransactionTestCase):
         hosts = db.getUnbilledHosts(period_start)
         self.assertEqual(len(hosts), 4)
         # Bill all (base_quantity of 3)
-        (hosts_to_bill, hosts_to_mark) = db.getHostsToBill(period_start, 3)
+        hosts_to_bill, hosts_to_mark = db.getHostsToBill(period_start, 3)
         self.assertEqual(len(hosts_to_bill), 4)
         self.assertEqual(len(hosts_to_mark), 0)
         # Bill none (base_quantity of 10)
-        (hosts_to_bill, hosts_to_mark) = db.getHostsToBill(period_start, 10)
+        hosts_to_bill, hosts_to_mark = db.getHostsToBill(period_start, 10)
         self.assertEqual(len(hosts_to_bill), 0)
         self.assertEqual(len(hosts_to_mark), 4)
         # Bill part (base_quantity of 4)
-        (hosts_to_bill, hosts_to_mark) = db.getHostsToBill(period_start, 4)
+        hosts_to_bill, hosts_to_mark = db.getHostsToBill(period_start, 4)
         self.assertEqual(len(hosts_to_bill), 3)
         self.assertEqual(len(hosts_to_mark), 1)
 
         # Base quantity of 0
-        (hosts_to_bill, hosts_to_mark) = db.getHostsToBill(period_start, 0)
+        hosts_to_bill, hosts_to_mark = db.getHostsToBill(period_start, 0)
         self.assertEqual(len(hosts_to_bill), 4)
         self.assertEqual(len(hosts_to_mark), 0)
 

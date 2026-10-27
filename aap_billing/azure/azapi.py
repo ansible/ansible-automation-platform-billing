@@ -26,8 +26,8 @@ def _getJsonPayload(url, headers, data_type="data"):
     """
     try:
         response = requests.get(url, headers=headers)
-    except requests.exceptions.RequestException as e:
-        logger.error("Unable to get %s from Azure, abort: %s" % (data_type, repr(e)))
+    except requests.exceptions.RequestException:
+        logger.exception("Unable to get %s from Azure, abort", data_type)
         sys.exit(1)
     response.raise_for_status()
     return response.json()
@@ -150,7 +150,7 @@ def getManAppIdAndMetadata():
         if not token:
             logger.info("Workload identity token request failed, trying pod identity.")
             token = _fetchMSIAccessToken()
-        (sub, nrg) = _fetchSubscriptionAndNodeResourceGroup()
+        sub, nrg = _fetchSubscriptionAndNodeResourceGroup()
         mrg = _fetchManagedResourceGroup(sub, nrg, token)
         managed_app_id = _fetchManagedAppId(sub, mrg, token)
         metadata["token"] = token
@@ -176,8 +176,8 @@ def pegBillingCounter(plan_id, dimension, hosts):
     try:
         response = requests.post(url, headers=auth_header, json=billing_data)
         response.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        logger.error("Billing payload not accepted: %s", e)
+    except requests.exceptions.RequestException:
+        logger.exception("Billing payload not accepted")
         logger.error(response.text)
         sys.exit(1)
 
